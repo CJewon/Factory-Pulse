@@ -1,0 +1,3 @@
+# Keep only the public README tracked.
+*.md
+!README.md
