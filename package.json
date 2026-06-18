@@ -1,0 +1,48 @@
+{
+  "name": "factory-pulse",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "type-check": "tsc --noEmit",
+    "test": "jest",
+    "test:unit": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "pretest:e2e": "next build",
+    "pretest:e2e:chrome": "next build",
+    "test:e2e": "playwright test",
+    "test:e2e:chrome": "playwright test --project=chrome --headed",
+    "test:all": "npm run type-check && npm run lint && npm run test:unit && npm run build && npm run test:e2e:chrome"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.0",
+    "@supabase/supabase-js": "2.108.2",
+    "@tanstack/react-query": "5.101.0",
+    "next": "16.2.9",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-hook-form": "7.79.0",
+    "zod": "4.4.3",
+    "zustand": "5.0.14"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "3.3.5",
+    "@playwright/test": "^1.61.0",
+    "@tailwindcss/postcss": "4.3.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "25.9.3",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.2",
+    "eslint-config-next": "16.2.9",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
+    "tailwindcss": "4.3.1",
+    "typescript": "6.0.3"
+  }
+}
