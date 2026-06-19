@@ -8,6 +8,8 @@ import {
   type DashboardAlarmItem,
   type DashboardTone,
 } from "@/lib/dashboard";
+import { formatRefreshInterval, isDashboardCardVisible } from "@/lib/settings/mapper";
+import { getDashboardPreferenceContext } from "@/lib/settings/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +21,10 @@ const toneClass: Record<DashboardTone, string> = {
   info: "border-cyan-200 bg-cyan-50 text-cyan-800"
 };
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const preferenceContext = await getDashboardPreferenceContext();
+  const { preferences } = preferenceContext;
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[color:var(--background)]">
       <header className="border-b border-[color:var(--line)] bg-white">
@@ -41,6 +46,9 @@ export default function DashboardPage() {
             <Link className="rounded-md border border-[color:var(--line)] bg-white px-3 py-2 font-semibold hover:border-[color:var(--accent)]" href="/reports">
               리포트 목록
             </Link>
+            <Link className="rounded-md border border-[color:var(--line)] bg-white px-3 py-2 font-semibold hover:border-[color:var(--accent)]" href="/settings">
+              설정
+            </Link>
           </nav>
         </div>
       </header>
@@ -54,28 +62,41 @@ export default function DashboardPage() {
           <p className="mt-3 max-w-3xl text-sm leading-6 text-[color:var(--muted)]">
             Supabase 최신 공개 데이터를 요청 시점에 조회하고, 알람/설비/생산 추세 영역은 Suspense 경계로 분리합니다.
           </p>
+          <p className="mt-3 w-fit rounded-md border border-[color:var(--line)] bg-white px-3 py-2 text-xs font-semibold text-slate-700">
+            {preferenceContext.isAuthenticated ? "개인 설정 적용" : "기본 설정 적용"} / 갱신 기준 {formatRefreshInterval(preferences.refreshInterval)}
+          </p>
         </section>
 
-        <div className="mt-5">
-          <Suspense fallback={<SummarySkeleton />}>
-            <DashboardSummarySection />
-          </Suspense>
-        </div>
+        {isDashboardCardVisible(preferences, "summary") ? (
+          <div className="mt-5">
+            <Suspense fallback={<SummarySkeleton />}>
+              <DashboardSummarySection />
+            </Suspense>
+          </div>
+        ) : null}
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.75fr)]">
-          <Suspense fallback={<PanelSkeleton title="설비 상태 보드" />}>
-            <MachineStatusBoard />
-          </Suspense>
-          <Suspense fallback={<PanelSkeleton title="최근 알람" />}>
-            <RecentAlarmsPanel />
-          </Suspense>
-        </div>
+        {isDashboardCardVisible(preferences, "machineBoard") || isDashboardCardVisible(preferences, "recentAlarms") ? (
+          <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.75fr)]">
+            {isDashboardCardVisible(preferences, "machineBoard") ? (
+              <Suspense fallback={<PanelSkeleton title="설비 상태 보드" />}>
+                <MachineStatusBoard />
+              </Suspense>
+            ) : null}
+            {isDashboardCardVisible(preferences, "recentAlarms") ? (
+              <Suspense fallback={<PanelSkeleton title="최근 알람" />}>
+                <RecentAlarmsPanel />
+              </Suspense>
+            ) : null}
+          </div>
+        ) : null}
 
-        <div className="mt-5">
-          <Suspense fallback={<PanelSkeleton title="생산량 추이" />}>
-            <ProductionTrendPanel />
-          </Suspense>
-        </div>
+        {isDashboardCardVisible(preferences, "productionTrend") ? (
+          <div className="mt-5">
+            <Suspense fallback={<PanelSkeleton title="생산량 추이" />}>
+              <ProductionTrendPanel />
+            </Suspense>
+          </div>
+        ) : null}
       </div>
     </main>
   );
