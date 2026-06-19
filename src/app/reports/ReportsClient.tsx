@@ -94,6 +94,7 @@ export function ReportsClient({ reports }: { reports: ReportSummary[] }) {
   const totals = useMemo(() => getTotals(visibleReports), [visibleReports]);
   const chartPoints = useMemo(() => getChartPoints(visibleReports), [visibleReports]);
   const selectedFactory = factories.find((factory) => factory.id === appliedFilters.factoryId) ?? null;
+  const compareLink = useMemo(() => buildCompareLink(appliedFilters, visibleReports), [appliedFilters, visibleReports]);
   const hasDraftChanges = buildQueryString(draftFilters) !== buildQueryString(appliedFilters);
   const hasAppliedFilters = buildQueryString(appliedFilters).length > 0;
 
@@ -130,9 +131,17 @@ export function ReportsClient({ reports }: { reports: ReportSummary[] }) {
               <span className="block sm:inline">적용 버튼을 누르면 URL 조건도 함께 갱신됩니다.</span>
             </p>
           </div>
-          <span className="w-fit rounded-md border border-[color:var(--line)] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
-            현재 정렬 {sortLabels[appliedFilters.sort]}
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <span className="w-fit rounded-md border border-[color:var(--line)] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
+              현재 정렬 {sortLabels[appliedFilters.sort]}
+            </span>
+            <Link
+              className="inline-flex h-9 items-center rounded-md bg-[color:var(--accent)] px-3 text-xs font-semibold text-white hover:bg-[color:var(--accent-strong)]"
+              href={compareLink}
+            >
+              기간 비교
+            </Link>
+          </div>
         </div>
 
         {selectedFactory ? (
@@ -516,6 +525,38 @@ function buildQueryString(filters: ReportFilters) {
   return params.toString();
 }
 
+function buildCompareLink(filters: ReportFilters, reports: ReportSummary[]) {
+  const params = new URLSearchParams();
+  const hasValidAppliedRange = filters.from && filters.to && isDateString(filters.from) && isDateString(filters.to) && filters.from <= filters.to;
+  const range = hasValidAppliedRange ? { fromA: filters.from, toA: filters.to } : getDefaultCompareRange(reports);
+
+  if (range.fromA && range.toA) {
+    const fromB = addDays(range.fromA, -getInclusiveDayCount(range.fromA, range.toA));
+    const toB = addDays(range.fromA, -1);
+
+    params.set("fromA", range.fromA);
+    params.set("toA", range.toA);
+    params.set("fromB", fromB);
+    params.set("toB", toB);
+  }
+
+  if (filters.factoryId !== "all") {
+    params.set("factoryId", filters.factoryId);
+  }
+
+  const query = params.toString();
+
+  return query ? `/reports/compare?${query}` : "/reports/compare";
+}
+
+function getDefaultCompareRange(reports: ReportSummary[]) {
+  const dates = [...new Set(reports.map((report) => report.reportDate))].sort();
+  const toA = dates.at(-1) ?? "";
+  const fromA = toA ? addDays(toA, -6) : "";
+
+  return { fromA, toA };
+}
+
 function getFactories(reports: ReportSummary[]) {
   const factories = new Map<string, { id: string; name: string }>();
 
@@ -630,6 +671,21 @@ function isDateString(value: string) {
   const parsed = new Date(`${value}T00:00:00Z`);
 
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value);
+}
+
+function getInclusiveDayCount(from: string, to: string) {
+  const fromDate = new Date(`${from}T00:00:00Z`);
+  const toDate = new Date(`${to}T00:00:00Z`);
+  const diff = toDate.getTime() - fromDate.getTime();
+
+  return Math.max(1, Math.round(diff / 86400000) + 1);
+}
+
+function addDays(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return date.toISOString().slice(0, 10);
 }
 
 function formatDate(value: string) {

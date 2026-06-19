@@ -1,4 +1,11 @@
 import type {
+  ReportCompareDelta,
+  ReportCompareDeltas,
+  ReportCompareFactoryRow,
+  ReportCompareInput,
+  ReportComparePeriod,
+  ReportCompareResult,
+  ReportCompareTrendPoint,
   ReportDateDetail,
   ReportDateStatusCount,
   ReportDateTotals,
@@ -6,7 +13,8 @@ import type {
   ReportSummary,
   ReportSummaryInput,
   ReportSummaryLinks,
-  ReportSummaryStatus
+  ReportSummaryStatus,
+  ReportTone
 } from "./types";
 
 const numberFormatter = new Intl.NumberFormat("ko-KR");
@@ -63,6 +71,35 @@ export function mapReportDateDetail(reportDate: string, summaries: ReportSummary
   };
 }
 
+export function mapReportComparison({
+  factoryId = "all",
+  fromA,
+  fromB,
+  reports,
+  toA,
+  toB
+}: ReportCompareInput): ReportCompareResult {
+  const periodA = createReportComparePeriod(fromA, toA);
+  const periodB = createReportComparePeriod(fromB, toB);
+  const scopedReports = reports.filter((report) => factoryId === "all" || report.factoryId === factoryId);
+  const periodAReports = scopedReports.filter((report) => isReportInRange(report, periodA));
+  const periodBReports = scopedReports.filter((report) => isReportInRange(report, periodB));
+  const periodATotals = getReportDateTotals(periodAReports);
+  const periodBTotals = getReportDateTotals(periodBReports);
+
+  return {
+    deltas: getReportCompareDeltas(periodATotals, periodBTotals),
+    factoryRows: getReportCompareFactoryRows(periodAReports, periodBReports),
+    periodA,
+    periodAReports,
+    periodATotals,
+    periodB,
+    periodBReports,
+    periodBTotals,
+    trend: getReportCompareTrend(periodAReports)
+  };
+}
+
 export function sortReportSummaries(summaries: ReportSummary[]) {
   return [...summaries].sort((left, right) => {
     const dateDiff = right.reportDate.localeCompare(left.reportDate);
@@ -73,6 +110,20 @@ export function sortReportSummaries(summaries: ReportSummary[]) {
 
     return left.factoryName.localeCompare(right.factoryName, "ko");
   });
+}
+
+function createReportComparePeriod(from: string, to: string): ReportComparePeriod {
+  return {
+    dayCount: getInclusiveDayCount(from, to),
+    from,
+    fromLabel: formatReportDate(from),
+    to,
+    toLabel: formatReportDate(to)
+  };
+}
+
+function isReportInRange(report: ReportSummary, period: ReportComparePeriod) {
+  return report.reportDate >= period.from && report.reportDate <= period.to;
 }
 
 function sortReportsForDate(reports: ReportSummary[]) {
@@ -116,6 +167,159 @@ function getReportDateStatusCounts(reports: ReportSummary[]): ReportDateStatusCo
       unknown: 0
     }
   );
+}
+
+function getReportCompareDeltas(current: ReportDateTotals, previous: ReportDateTotals): ReportCompareDeltas {
+  return {
+    averageOperationRate: getPointDelta(current.averageOperationRate, previous.averageOperationRate, "lower-is-bad"),
+    defectRate: getPointDelta(current.defectRate, previous.defectRate, "lower-is-good"),
+    riskCount: getCountDelta(current.riskCount, previous.riskCount, "lower-is-good"),
+    totalOutput: getPercentDelta(current.totalOutput, previous.totalOutput, "higher-is-good")
+  };
+}
+
+function getReportCompareFactoryRows(
+  periodAReports: ReportSummary[],
+  periodBReports: ReportSummary[]
+): ReportCompareFactoryRow[] {
+  const factoryMap = new Map<string, ReportSummary>();
+
+  for (const report of [...periodAReports, ...periodBReports]) {
+    if (!factoryMap.has(report.factoryId)) {
+      factoryMap.set(report.factoryId, report);
+    }
+  }
+
+  return [...factoryMap.values()]
+    .map((factoryReport) => {
+      const periodA = getReportDateTotals(periodAReports.filter((report) => report.factoryId === factoryReport.factoryId));
+      const periodB = getReportDateTotals(periodBReports.filter((report) => report.factoryId === factoryReport.factoryId));
+
+      return {
+        deltas: getReportCompareDeltas(periodA, periodB),
+        factoryId: factoryReport.factoryId,
+        factoryLocation: factoryReport.factoryLocation,
+        factoryName: factoryReport.factoryName,
+        links: {
+          factory: factoryReport.links.factory,
+          reports: `/reports?factoryId=${encodeURIComponent(factoryReport.factoryId)}`
+        },
+        periodA,
+        periodB
+      };
+    })
+    .sort((left, right) => {
+      const riskDiff = right.periodA.riskCount - left.periodA.riskCount;
+
+      if (riskDiff !== 0) {
+        return riskDiff;
+      }
+
+      const outputDiff = right.periodA.totalOutput - left.periodA.totalOutput;
+
+      if (outputDiff !== 0) {
+        return outputDiff;
+      }
+
+      return left.factoryName.localeCompare(right.factoryName, "ko");
+    });
+}
+
+function getReportCompareTrend(reports: ReportSummary[]): ReportCompareTrendPoint[] {
+  const reportsByDate = new Map<string, ReportSummary[]>();
+
+  for (const report of reports) {
+    reportsByDate.set(report.reportDate, [...(reportsByDate.get(report.reportDate) ?? []), report]);
+  }
+
+  return [...reportsByDate.entries()]
+    .sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate))
+    .map(([date, dailyReports]) => {
+      const totals = getReportDateTotals(dailyReports);
+
+      return {
+        averageOperationRate: totals.averageOperationRate,
+        date,
+        dateLabel: formatReportDate(date),
+        defectRate: totals.defectRate,
+        riskCount: totals.riskCount,
+        totalOutput: totals.totalOutput
+      };
+    });
+}
+
+function getPercentDelta(current: number, previous: number, toneRule: "higher-is-good" | "lower-is-good"): ReportCompareDelta {
+  if (previous === 0) {
+    if (current === 0) {
+      return { direction: "flat", label: "변화 없음", tone: "neutral", value: 0 };
+    }
+
+    return {
+      direction: "up",
+      label: "신규 발생",
+      tone: toneRule === "higher-is-good" ? "success" : "danger",
+      value: 100
+    };
+  }
+
+  const value = ((current - previous) / previous) * 100;
+
+  return {
+    direction: getDeltaDirection(value),
+    label: `${formatSigned(value)}%`,
+    tone: getDeltaTone(value, toneRule),
+    value
+  };
+}
+
+function getPointDelta(
+  current: number,
+  previous: number,
+  toneRule: "lower-is-bad" | "lower-is-good"
+): ReportCompareDelta {
+  const value = current - previous;
+
+  return {
+    direction: getDeltaDirection(value),
+    label: `${formatSigned(value)}%p`,
+    tone: getDeltaTone(value, toneRule === "lower-is-bad" ? "higher-is-good" : "lower-is-good"),
+    value
+  };
+}
+
+function getCountDelta(current: number, previous: number, toneRule: "lower-is-good"): ReportCompareDelta {
+  const value = current - previous;
+
+  return {
+    direction: getDeltaDirection(value),
+    label: `${formatSigned(value)}건`,
+    tone: getDeltaTone(value, toneRule),
+    value
+  };
+}
+
+function getDeltaDirection(value: number): ReportCompareDelta["direction"] {
+  if (value > 0) {
+    return "up";
+  }
+
+  if (value < 0) {
+    return "down";
+  }
+
+  return "flat";
+}
+
+function getDeltaTone(value: number, toneRule: "higher-is-good" | "lower-is-good"): ReportTone {
+  if (value === 0) {
+    return "neutral";
+  }
+
+  if (toneRule === "higher-is-good") {
+    return value > 0 ? "success" : "danger";
+  }
+
+  return value < 0 ? "success" : "danger";
 }
 
 function getTopOutputReport(reports: ReportSummary[]) {
@@ -229,6 +433,24 @@ function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
 }
 
+function formatSigned(value: number) {
+  if (!Number.isFinite(value)) {
+    return "0.0";
+  }
+
+  const fixed = Math.abs(value).toFixed(1);
+
+  if (value > 0) {
+    return `+${fixed}`;
+  }
+
+  if (value < 0) {
+    return `-${fixed}`;
+  }
+
+  return "0.0";
+}
+
 function toNumber(value: number | string) {
   const parsed = typeof value === "number" ? value : Number(value);
 
@@ -237,4 +459,12 @@ function toNumber(value: number | string) {
   }
 
   return parsed;
+}
+
+function getInclusiveDayCount(from: string, to: string) {
+  const fromDate = new Date(`${from}T00:00:00Z`);
+  const toDate = new Date(`${to}T00:00:00Z`);
+  const diff = toDate.getTime() - fromDate.getTime();
+
+  return Math.max(1, Math.round(diff / 86400000) + 1);
 }

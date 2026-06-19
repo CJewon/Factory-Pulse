@@ -29,9 +29,10 @@ test.describe("/reports", () => {
     await page.getByRole("table").getByRole("link", { name: "상세 보기" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "서울 스마트팩토리" })).toBeVisible();
 
-    await page.getByRole("link", { name: "리포트 보기" }).click();
-
-    await expect(page).toHaveURL(/\/reports\?factoryId=/);
+    await Promise.all([
+      page.waitForURL(/\/reports\?factoryId=/),
+      page.getByRole("link", { name: "리포트 보기" }).click()
+    ]);
     await expect(page.getByRole("heading", { level: 1, name: "생산 리포트" })).toBeVisible();
     await expect(page.getByText("선택 공장: 서울 스마트팩토리")).toBeVisible();
     await expect(page.getByRole("heading", { name: /리포트 \d+건/ })).toBeVisible();
@@ -61,6 +62,29 @@ test.describe("/reports", () => {
 
     await page.goto("/reports/not-a-date");
     await expect(page.getByRole("heading", { level: 1, name: "요청한 화면을 찾을 수 없습니다." })).toBeVisible();
+  });
+
+  test("기간 비교 화면에서 A/B 기간 비교, invalid, empty 상태를 확인한다", async ({ page }) => {
+    await page.goto("/reports");
+
+    await page.getByRole("link", { name: "기간 비교" }).click();
+    await expect(page).toHaveURL(/\/reports\/compare/);
+    await expect(page.getByRole("heading", { level: 1, name: "기간 비교" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "비교 조건" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "공장별 비교" })).toBeVisible();
+
+    await page.goto("/reports/compare?fromA=2026-06-18&toA=2026-06-18&fromB=2026-06-17&toB=2026-06-17");
+    await expect(page.getByLabel("기간 A 시작")).toHaveValue("2026-06-18");
+    await expect(page.getByLabel("기간 B 시작")).toHaveValue("2026-06-17");
+    await expect(page.getByText("기간 B 2026.06.17 - 2026.06.17")).toBeVisible();
+
+    await page.getByLabel("기간 A 시작").fill("2026-06-19");
+    await page.getByRole("button", { name: "비교 적용" }).click();
+    await expect(page.getByText("비교 조건을 확인해 주세요.")).toBeVisible();
+    await expect(page.getByText("기간 A 시작일은 종료일보다 늦을 수 없습니다.")).toBeVisible();
+
+    await page.goto("/reports/compare?fromA=2099-01-01&toA=2099-01-07&fromB=2098-12-25&toB=2098-12-31");
+    await expect(page.getByText("비교할 리포트가 없습니다.")).toBeVisible();
   });
 
   test("잘못된 query는 404 대신 초기화 가능한 상태로 표시한다", async ({ page }) => {

@@ -75,3 +75,68 @@ export type ReportDateDetail = {
   lowestOperationReport: ReportSummary | null;
   highestDefectReport: ReportSummary | null;
 };
+
+export type ReportCompareInput = {
+  factoryId?: string;
+  fromA: string;
+  fromB: string;
+  reports: ReportSummary[];
+  toA: string;
+  toB: string;
+};
+
+export type ReportComparePeriod = {
+  dayCount: number;
+  from: string;
+  fromLabel: string;
+  to: string;
+  toLabel: string;
+};
+
+export type ReportCompareDelta = {
+  direction: "down" | "flat" | "up";
+  label: string;
+  tone: ReportTone;
+  value: number;
+};
+
+export type ReportCompareDeltas = {
+  averageOperationRate: ReportCompareDelta;
+  defectRate: ReportCompareDelta;
+  riskCount: ReportCompareDelta;
+  totalOutput: ReportCompareDelta;
+};
+
+export type ReportCompareFactoryRow = {
+  deltas: ReportCompareDeltas;
+  factoryId: string;
+  factoryLocation: string;
+  factoryName: string;
+  links: {
+    reports: string;
+    factory: string;
+  };
+  periodA: ReportDateTotals;
+  periodB: ReportDateTotals;
+};
+
+export type ReportCompareTrendPoint = {
+  averageOperationRate: number;
+  date: string;
+  dateLabel: string;
+  defectRate: number;
+  riskCount: number;
+  totalOutput: number;
+};
+
+export type ReportCompareResult = {
+  deltas: ReportCompareDeltas;
+  factoryRows: ReportCompareFactoryRow[];
+  periodA: ReportComparePeriod;
+  periodAReports: ReportSummary[];
+  periodATotals: ReportDateTotals;
+  periodB: ReportComparePeriod;
+  periodBReports: ReportSummary[];
+  periodBTotals: ReportDateTotals;
+  trend: ReportCompareTrendPoint[];
+};

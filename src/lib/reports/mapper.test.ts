@@ -1,4 +1,4 @@
-import { mapReportDateDetail, mapReportSummaries, sortReportSummaries } from "./mapper";
+import { mapReportComparison, mapReportDateDetail, mapReportSummaries, sortReportSummaries } from "./mapper";
 import type { FactoryRow, ReportListRow } from "./types";
 
 describe("mapReportSummaries", () => {
@@ -134,6 +134,112 @@ describe("mapReportDateDetail", () => {
       riskCount: 0
     });
     expect(detail.statusCounts).toEqual({ critical: 0, good: 0, unknown: 0, warning: 0 });
+  });
+});
+
+describe("mapReportComparison", () => {
+  it("기간 A와 기간 B의 생산 지표를 비교하고 공장별 행을 만든다", () => {
+    const summaries = mapReportSummaries({
+      factories: [
+        factory({ id: "factory-a", name: "서울 스마트팩토리" }),
+        factory({ id: "factory-b", name: "부산 자동화 공장" })
+      ],
+      reports: [
+        report({
+          id: "a-current",
+          factory_id: "factory-a",
+          report_date: "2026-06-18",
+          total_output: 1000,
+          defect_count: 10,
+          operation_rate: 95
+        }),
+        report({
+          id: "b-current",
+          factory_id: "factory-b",
+          report_date: "2026-06-18",
+          total_output: 2000,
+          defect_count: 100,
+          operation_rate: 82
+        }),
+        report({
+          id: "a-base",
+          factory_id: "factory-a",
+          report_date: "2026-06-17",
+          total_output: 500,
+          defect_count: 10,
+          operation_rate: 90
+        }),
+        report({
+          id: "b-base",
+          factory_id: "factory-b",
+          report_date: "2026-06-17",
+          total_output: 1000,
+          defect_count: 10,
+          operation_rate: 96
+        })
+      ]
+    });
+
+    const comparison = mapReportComparison({
+      fromA: "2026-06-18",
+      fromB: "2026-06-17",
+      reports: summaries,
+      toA: "2026-06-18",
+      toB: "2026-06-17"
+    });
+
+    expect(comparison.periodA.fromLabel).toBe("2026.06.18");
+    expect(comparison.periodB.fromLabel).toBe("2026.06.17");
+    expect(comparison.periodATotals.totalOutput).toBe(3000);
+    expect(comparison.periodBTotals.totalOutput).toBe(1500);
+    expect(comparison.deltas.totalOutput.label).toBe("+100.0%");
+    expect(comparison.deltas.defectRate.tone).toBe("danger");
+    expect(comparison.factoryRows.map((row) => row.factoryId)).toEqual(["factory-b", "factory-a"]);
+    expect(comparison.trend).toHaveLength(1);
+    expect(comparison.trend[0]).toMatchObject({ date: "2026-06-18", totalOutput: 3000 });
+  });
+
+  it("factoryId가 있으면 해당 공장만 비교한다", () => {
+    const summaries = mapReportSummaries({
+      factories: [
+        factory({ id: "factory-a", name: "서울 스마트팩토리" }),
+        factory({ id: "factory-b", name: "부산 자동화 공장" })
+      ],
+      reports: [
+        report({ id: "a-current", factory_id: "factory-a", report_date: "2026-06-18", total_output: 1000 }),
+        report({ id: "b-current", factory_id: "factory-b", report_date: "2026-06-18", total_output: 2000 }),
+        report({ id: "a-base", factory_id: "factory-a", report_date: "2026-06-17", total_output: 500 }),
+        report({ id: "b-base", factory_id: "factory-b", report_date: "2026-06-17", total_output: 1000 })
+      ]
+    });
+
+    const comparison = mapReportComparison({
+      factoryId: "factory-a",
+      fromA: "2026-06-18",
+      fromB: "2026-06-17",
+      reports: summaries,
+      toA: "2026-06-18",
+      toB: "2026-06-17"
+    });
+
+    expect(comparison.periodATotals.totalOutput).toBe(1000);
+    expect(comparison.periodBTotals.totalOutput).toBe(500);
+    expect(comparison.factoryRows.map((row) => row.factoryId)).toEqual(["factory-a"]);
+  });
+
+  it("두 기간 모두 데이터가 없으면 빈 비교 결과를 만든다", () => {
+    const comparison = mapReportComparison({
+      fromA: "2099-01-01",
+      fromB: "2098-12-25",
+      reports: [],
+      toA: "2099-01-07",
+      toB: "2098-12-31"
+    });
+
+    expect(comparison.periodATotals.reportCount).toBe(0);
+    expect(comparison.periodBTotals.reportCount).toBe(0);
+    expect(comparison.factoryRows).toHaveLength(0);
+    expect(comparison.trend).toHaveLength(0);
   });
 });
 
