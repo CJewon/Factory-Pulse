@@ -21,6 +21,7 @@ export type ReportSummaryStatus = {
 
 export type ReportSummaryLinks = {
   factory: string;
+  detail: string;
 };
 
 export type ReportSummary = {
@@ -46,4 +47,31 @@ export type ReportSummary = {
 export type ReportSummaryInput = {
   factories: FactoryRow[];
   reports: ReportListRow[];
+};
+
+export type ReportDateTotals = {
+  reportCount: number;
+  totalOutput: number;
+  totalDefects: number;
+  averageOperationRate: number;
+  defectRate: number;
+  riskCount: number;
+};
+
+export type ReportDateStatusCount = {
+  good: number;
+  warning: number;
+  critical: number;
+  unknown: number;
+};
+
+export type ReportDateDetail = {
+  reportDate: string;
+  reportDateLabel: string;
+  reports: ReportSummary[];
+  totals: ReportDateTotals;
+  statusCounts: ReportDateStatusCount;
+  topOutputReport: ReportSummary | null;
+  lowestOperationReport: ReportSummary | null;
+  highestDefectReport: ReportSummary | null;
 };

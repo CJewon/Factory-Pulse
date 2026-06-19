@@ -131,7 +131,7 @@ function report(overrides: Partial<ReportSummary>): ReportSummary {
     factoryLocation: "서울",
     factoryName: "테스트 공장",
     id: "report",
-    links: { factory: "/factories/factory" },
+    links: { detail: "/reports/2026-06-18", factory: "/factories/factory" },
     operationRate: 90,
     operationRateLabel: "90.0%",
     reportDate: "2026-06-18",

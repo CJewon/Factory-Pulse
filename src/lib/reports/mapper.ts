@@ -1,4 +1,7 @@
 import type {
+  ReportDateDetail,
+  ReportDateStatusCount,
+  ReportDateTotals,
   ReportStatusValue,
   ReportSummary,
   ReportSummaryInput,
@@ -40,9 +43,24 @@ export function mapReportSummaries(input: ReportSummaryInput): ReportSummary[] {
       operationRate,
       operationRateLabel: formatPercent(operationRate),
       status: getReportStatus({ defectRate, operationRate, totalOutput }),
-      links: getReportSummaryLinks(factory.id)
+      links: getReportSummaryLinks(factory.id, report.report_date)
     };
   });
+}
+
+export function mapReportDateDetail(reportDate: string, summaries: ReportSummary[]): ReportDateDetail {
+  const reports = sortReportsForDate(summaries.filter((summary) => summary.reportDate === reportDate));
+
+  return {
+    reportDate,
+    reportDateLabel: formatReportDate(reportDate),
+    reports,
+    totals: getReportDateTotals(reports),
+    statusCounts: getReportDateStatusCounts(reports),
+    topOutputReport: getTopOutputReport(reports),
+    lowestOperationReport: getLowestOperationReport(reports),
+    highestDefectReport: getHighestDefectReport(reports)
+  };
 }
 
 export function sortReportSummaries(summaries: ReportSummary[]) {
@@ -55,6 +73,79 @@ export function sortReportSummaries(summaries: ReportSummary[]) {
 
     return left.factoryName.localeCompare(right.factoryName, "ko");
   });
+}
+
+function sortReportsForDate(reports: ReportSummary[]) {
+  return [...reports].sort((left, right) => {
+    const statusDiff = right.status.priority - left.status.priority;
+
+    if (statusDiff !== 0) {
+      return statusDiff;
+    }
+
+    return left.factoryName.localeCompare(right.factoryName, "ko");
+  });
+}
+
+function getReportDateTotals(reports: ReportSummary[]): ReportDateTotals {
+  const totalOutput = reports.reduce((sum, report) => sum + report.totalOutput, 0);
+  const totalDefects = reports.reduce((sum, report) => sum + report.defectCount, 0);
+  const operationSum = reports.reduce((sum, report) => sum + report.operationRate, 0);
+  const averageOperationRate = reports.length > 0 ? operationSum / reports.length : 0;
+
+  return {
+    reportCount: reports.length,
+    totalOutput,
+    totalDefects,
+    averageOperationRate,
+    defectRate: getDefectRate(totalDefects, totalOutput),
+    riskCount: reports.filter((report) => report.status.value === "critical" || report.status.value === "warning").length
+  };
+}
+
+function getReportDateStatusCounts(reports: ReportSummary[]): ReportDateStatusCount {
+  return reports.reduce(
+    (counts, report) => {
+      counts[report.status.value] += 1;
+      return counts;
+    },
+    {
+      good: 0,
+      warning: 0,
+      critical: 0,
+      unknown: 0
+    }
+  );
+}
+
+function getTopOutputReport(reports: ReportSummary[]) {
+  return reports.reduce<ReportSummary | null>((topReport, report) => {
+    if (!topReport || report.totalOutput > topReport.totalOutput) {
+      return report;
+    }
+
+    return topReport;
+  }, null);
+}
+
+function getLowestOperationReport(reports: ReportSummary[]) {
+  return reports.reduce<ReportSummary | null>((lowestReport, report) => {
+    if (!lowestReport || report.operationRate < lowestReport.operationRate) {
+      return report;
+    }
+
+    return lowestReport;
+  }, null);
+}
+
+function getHighestDefectReport(reports: ReportSummary[]) {
+  return reports.reduce<ReportSummary | null>((highestReport, report) => {
+    if (!highestReport || report.defectRate > highestReport.defectRate) {
+      return report;
+    }
+
+    return highestReport;
+  }, null);
 }
 
 function getDefectRate(defectCount: number, totalOutput: number) {
@@ -113,9 +204,10 @@ function normalizeReportStatus({
   return "good";
 }
 
-function getReportSummaryLinks(factoryId: string): ReportSummaryLinks {
+function getReportSummaryLinks(factoryId: string, reportDate: string): ReportSummaryLinks {
   return {
-    factory: `/factories/${encodeURIComponent(factoryId)}`
+    factory: `/factories/${encodeURIComponent(factoryId)}`,
+    detail: `/reports/${encodeURIComponent(reportDate)}`
   };
 }
 

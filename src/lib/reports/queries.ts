@@ -1,6 +1,6 @@
 import { createSupabasePublicClient } from "@/lib/supabase/public";
-import { mapReportSummaries, sortReportSummaries } from "./mapper";
-import type { ReportSummary } from "./types";
+import { mapReportDateDetail, mapReportSummaries, sortReportSummaries } from "./mapper";
+import type { ReportDateDetail, ReportSummary } from "./types";
 
 export class ReportSummaryQueryError extends Error {
   constructor(message: string) {
@@ -32,4 +32,24 @@ export async function getReportSummaries(): Promise<ReportSummary[]> {
   });
 
   return sortReportSummaries(summaries);
+}
+
+export async function getReportDates(): Promise<string[]> {
+  const supabase = createSupabasePublicClient();
+  const { data, error } = await supabase
+    .from("production_reports")
+    .select("report_date")
+    .order("report_date", { ascending: false });
+
+  if (error) {
+    throw new ReportSummaryQueryError(error.message);
+  }
+
+  return [...new Set((data ?? []).map((report) => report.report_date))];
+}
+
+export async function getReportDateDetail(reportDate: string): Promise<ReportDateDetail> {
+  const summaries = await getReportSummaries();
+
+  return mapReportDateDetail(reportDate, summaries);
 }

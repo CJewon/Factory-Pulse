@@ -40,12 +40,35 @@ test.describe("/reports", () => {
     await expect(page.getByRole("heading", { level: 1, name: "서울 스마트팩토리" })).toBeVisible();
   });
 
+  test("리포트 목록에서 날짜별 상세로 이동하고 empty, 404 상태를 확인한다", async ({ page }) => {
+    await page.goto("/reports");
+
+    await page.getByRole("link", { name: "리포트 상세" }).first().click();
+
+    await expect(page).toHaveURL(/\/reports\/\d{4}-\d{2}-\d{2}/);
+    await expect(page.getByRole("heading", { level: 1, name: "일별 생산 리포트" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "공장별 리포트" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "리포트 목록" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "공장 상세" }).first()).toBeVisible();
+
+    await page.getByRole("link", { name: "리포트 목록" }).click();
+    await expect(page).toHaveURL(/\/reports$/);
+
+    await page.goto("/reports/2099-01-01");
+    await expect(page.getByText("2099.01.01 리포트가 없습니다.")).toBeVisible();
+    await page.getByRole("link", { name: "리포트 목록으로" }).click();
+    await expect(page).toHaveURL(/\/reports$/);
+
+    await page.goto("/reports/not-a-date");
+    await expect(page.getByRole("heading", { level: 1, name: "요청한 화면을 찾을 수 없습니다." })).toBeVisible();
+  });
+
   test("잘못된 query는 404 대신 초기화 가능한 상태로 표시한다", async ({ page }) => {
     await page.goto("/reports?factoryId=invalid-factory");
 
     await expect(page.getByText("필터 조건을 확인해 주세요.")).toBeVisible();
     await expect(page.getByText(/선택한 공장 ID/)).toBeVisible();
-    await page.getByRole("link", { name: "전체 리포트로 초기화" }).click();
+    await page.getByRole("button", { name: "전체 리포트로 초기화" }).click();
     await expect(page).toHaveURL(/\/reports$/);
 
     await page.goto("/reports?from=2026-06-19&to=2026-06-18");

@@ -331,13 +331,21 @@ export function ReportsClient({ reports }: { reports: ReportSummary[] }) {
                             {report.status.label}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-right">
-                          <Link
-                            className="inline-flex h-10 items-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white hover:bg-slate-700"
-                            href={report.links.factory}
-                          >
-                            공장 상세
-                          </Link>
+                        <td className="px-4 py-4">
+                          <div className="flex justify-end gap-2">
+                            <Link
+                              className="inline-flex h-10 items-center rounded-md bg-[color:var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[color:var(--accent-strong)]"
+                              href={report.links.detail}
+                            >
+                              리포트 상세
+                            </Link>
+                            <Link
+                              className="inline-flex h-10 items-center rounded-md border border-[color:var(--line)] bg-white px-3 text-sm font-semibold text-[color:var(--foreground)] hover:border-[color:var(--accent)]"
+                              href={report.links.factory}
+                            >
+                              공장 상세
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -363,12 +371,20 @@ export function ReportsClient({ reports }: { reports: ReportSummary[] }) {
                       <CompactMetric label="불량 수" value={report.defectCountLabel} />
                       <CompactMetric label="불량률" value={report.defectRateLabel} />
                     </dl>
-                    <Link
-                      className="mt-4 flex h-11 w-full items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white"
-                      href={report.links.factory}
-                    >
-                      공장 상세
-                    </Link>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      <Link
+                        className="flex h-11 w-full items-center justify-center rounded-md bg-[color:var(--accent)] px-3 text-sm font-semibold text-white"
+                        href={report.links.detail}
+                      >
+                        리포트 상세
+                      </Link>
+                      <Link
+                        className="flex h-11 w-full items-center justify-center rounded-md border border-[color:var(--line)] bg-white px-3 text-sm font-semibold text-[color:var(--foreground)]"
+                        href={report.links.factory}
+                      >
+                        공장 상세
+                      </Link>
+                    </div>
                   </article>
                 ))}
               </div>
@@ -442,12 +458,14 @@ function InvalidFilterState({
       <p className="mt-2 text-sm leading-6 text-amber-800">
         {!selectedFactoryExists ? `선택한 공장 ID(${factoryId})를 찾을 수 없습니다.` : dateError}
       </p>
-      <a
-        className="mt-4 inline-flex h-11 items-center rounded-md border border-amber-300 bg-white px-4 text-sm font-semibold text-amber-900 hover:border-amber-500"
-        href="/reports"
-      >
-        전체 리포트로 초기화
-      </a>
+      <form action="/reports" className="mt-4" method="get">
+        <button
+          className="inline-flex h-11 items-center rounded-md border border-amber-300 bg-white px-4 text-sm font-semibold text-amber-900 hover:border-amber-500"
+          type="submit"
+        >
+          전체 리포트로 초기화
+        </button>
+      </form>
     </div>
   );
 }
