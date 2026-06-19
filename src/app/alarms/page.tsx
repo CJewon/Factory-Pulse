@@ -6,7 +6,9 @@ import { AlarmsClient } from "./AlarmsClient";
 type SearchParams = {
   factoryId?: string;
   machineId?: string;
+  q?: string;
   severity?: string;
+  sort?: string;
   status?: string;
 };
 
@@ -69,7 +71,9 @@ export default async function AlarmsPage({
             alarms={alarms}
             initialFactoryId={params.factoryId ?? null}
             initialMachineId={params.machineId ?? null}
+            initialQuery={getInitialQuery(params.q)}
             initialSeverity={getInitialSeverity(params.severity)}
+            initialSort={getInitialSort(params.sort)}
             initialStatus={getInitialStatus(params.status)}
             canResolveAlarms={canResolveAlarms}
           />
@@ -103,4 +107,16 @@ function getInitialStatus(value: string | undefined): "all" | AlarmStatusValue {
   }
 
   return "all";
+}
+
+function getInitialSort(value: string | undefined) {
+  if (value === "latest" || value === "machine") {
+    return value;
+  }
+
+  return "risk";
+}
+
+function getInitialQuery(value: string | undefined) {
+  return (value ?? "").trim().slice(0, 80);
 }

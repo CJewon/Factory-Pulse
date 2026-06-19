@@ -2,13 +2,22 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type { AlarmSeverityValue, AlarmStatusValue, AlarmSummary, AlarmTone } from "@/lib/alarms";
+import { type BrowserHistoryMode, normalizeSearchQuery, readBrowserSearchParams, writeBrowserQueryString } from "@/lib/url-state";
 import { resolveAlarmAction } from "./actions";
 
 type SeverityFilter = "all" | AlarmSeverityValue;
 type StatusFilter = "all" | AlarmStatusValue;
 type SortMode = "risk" | "latest" | "machine";
+type AlarmFilters = {
+  factoryId: string;
+  machineId: string;
+  query: string;
+  severity: SeverityFilter;
+  sortMode: SortMode;
+  status: StatusFilter;
+};
 type ActionMessage = {
   tone: "success" | "warning" | "danger";
   text: string;
@@ -46,27 +55,51 @@ export function AlarmsClient({
   alarms,
   initialFactoryId,
   initialMachineId,
+  initialQuery,
   initialSeverity,
+  initialSort,
   initialStatus,
   canResolveAlarms
 }: {
   alarms: AlarmSummary[];
   initialFactoryId: string | null;
   initialMachineId: string | null;
+  initialQuery: string;
   initialSeverity: SeverityFilter;
+  initialSort: SortMode;
   initialStatus: StatusFilter;
   canResolveAlarms: boolean;
 }) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [factoryId, setFactoryId] = useState(initialFactoryId ?? "all");
   const [machineId, setMachineId] = useState(initialMachineId ?? "all");
   const [severity, setSeverity] = useState<SeverityFilter>(initialSeverity);
   const [status, setStatus] = useState<StatusFilter>(initialStatus);
-  const [sortMode, setSortMode] = useState<SortMode>("risk");
+  const [sortMode, setSortMode] = useState<SortMode>(initialSort);
   const [pendingAlarmId, setPendingAlarmId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<ActionMessage | null>(null);
   const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    function syncFiltersFromLocation() {
+      const nextFilters = getAlarmFiltersFromSearchParams(readBrowserSearchParams());
+
+      setQuery(nextFilters.query);
+      setFactoryId(nextFilters.factoryId);
+      setMachineId(nextFilters.machineId);
+      setSeverity(nextFilters.severity);
+      setStatus(nextFilters.status);
+      setSortMode(nextFilters.sortMode);
+    }
+
+    syncFiltersFromLocation();
+    window.addEventListener("popstate", syncFiltersFromLocation);
+
+    return () => {
+      window.removeEventListener("popstate", syncFiltersFromLocation);
+    };
+  }, []);
 
   const factories = useMemo(() => getFactories(alarms), [alarms]);
   const machines = useMemo(() => getMachines(alarms, factoryId), [alarms, factoryId]);
@@ -108,17 +141,41 @@ export function AlarmsClient({
   }, [alarms, factoryId, machineId, query, selectedFactoryExists, selectedMachineExists, severity, sortMode, status]);
 
   function resetFilters() {
-    setQuery("");
-    setFactoryId("all");
-    setMachineId("all");
-    setSeverity("all");
-    setStatus("all");
-    setSortMode("risk");
+    applyFilters(getDefaultAlarmFilters(), "push");
   }
 
   function changeFactory(nextFactoryId: string) {
-    setFactoryId(nextFactoryId);
-    setMachineId("all");
+    updateFilters({ factoryId: nextFactoryId, machineId: "all" }, "push");
+  }
+
+  function updateFilters(patch: Partial<AlarmFilters>, mode: BrowserHistoryMode = "push") {
+    applyFilters(
+      {
+        factoryId,
+        machineId,
+        query,
+        severity,
+        sortMode,
+        status,
+        ...patch
+      },
+      mode
+    );
+  }
+
+  function applyFilters(nextFilters: AlarmFilters, mode: BrowserHistoryMode) {
+    const normalizedFilters = {
+      ...nextFilters,
+      query: normalizeSearchQuery(nextFilters.query)
+    };
+
+    setQuery(normalizedFilters.query);
+    setFactoryId(normalizedFilters.factoryId);
+    setMachineId(normalizedFilters.machineId);
+    setSeverity(normalizedFilters.severity);
+    setStatus(normalizedFilters.status);
+    setSortMode(normalizedFilters.sortMode);
+    writeBrowserQueryString(buildAlarmQueryString(normalizedFilters), mode);
   }
 
   function resolveAlarm(alarm: AlarmSummary) {
@@ -193,7 +250,7 @@ export function AlarmsClient({
               <span className="text-sm font-semibold text-[color:var(--foreground)]">검색</span>
               <input
                 className="mt-2 h-11 w-full rounded-md border border-[color:var(--line)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-teal-100"
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => updateFilters({ query: event.target.value }, "replace")}
                 placeholder="알람 메시지, 설비명 검색"
                 type="search"
                 value={query}
@@ -220,7 +277,7 @@ export function AlarmsClient({
               <span className="text-sm font-semibold text-[color:var(--foreground)]">설비</span>
               <select
                 className="mt-2 h-11 w-full rounded-md border border-[color:var(--line)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-teal-100"
-                onChange={(event) => setMachineId(event.target.value)}
+                onChange={(event) => updateFilters({ machineId: event.target.value }, "push")}
                 value={machineId}
               >
                 <option value="all">전체 설비</option>
@@ -236,7 +293,7 @@ export function AlarmsClient({
               <span className="text-sm font-semibold text-[color:var(--foreground)]">심각도</span>
               <select
                 className="mt-2 h-11 w-full rounded-md border border-[color:var(--line)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-teal-100"
-                onChange={(event) => setSeverity(event.target.value as SeverityFilter)}
+                onChange={(event) => updateFilters({ severity: event.target.value as SeverityFilter }, "push")}
                 value={severity}
               >
                 {severityOptions.map((option) => (
@@ -251,7 +308,7 @@ export function AlarmsClient({
               <span className="text-sm font-semibold text-[color:var(--foreground)]">상태</span>
               <select
                 className="mt-2 h-11 w-full rounded-md border border-[color:var(--line)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-teal-100"
-                onChange={(event) => setStatus(event.target.value as StatusFilter)}
+                onChange={(event) => updateFilters({ status: event.target.value as StatusFilter }, "push")}
                 value={status}
               >
                 {statusOptions.map((option) => (
@@ -266,7 +323,7 @@ export function AlarmsClient({
               <span className="text-sm font-semibold text-[color:var(--foreground)]">정렬</span>
               <select
                 className="mt-2 h-11 w-full rounded-md border border-[color:var(--line)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-teal-100"
-                onChange={(event) => setSortMode(event.target.value as SortMode)}
+                onChange={(event) => updateFilters({ sortMode: event.target.value as SortMode }, "push")}
                 value={sortMode}
               >
                 {Object.entries(sortLabels).map(([value, label]) => (
@@ -621,4 +678,81 @@ function compareAlarms(left: AlarmSummary, right: AlarmSummary, sortMode: SortMo
         right.occurredAt.localeCompare(left.occurredAt)
       );
   }
+}
+
+function getDefaultAlarmFilters(): AlarmFilters {
+  return {
+    factoryId: "all",
+    machineId: "all",
+    query: "",
+    severity: "all",
+    sortMode: "risk",
+    status: "all"
+  };
+}
+
+function getAlarmFiltersFromSearchParams(params: URLSearchParams): AlarmFilters {
+  return {
+    factoryId: params.get("factoryId") || "all",
+    machineId: params.get("machineId") || "all",
+    query: normalizeSearchQuery(params.get("q")),
+    severity: parseSeverityFilter(params.get("severity")),
+    sortMode: parseAlarmSortMode(params.get("sort")),
+    status: parseStatusFilter(params.get("status"))
+  };
+}
+
+function buildAlarmQueryString(filters: AlarmFilters) {
+  const params = new URLSearchParams();
+  const query = normalizeSearchQuery(filters.query);
+
+  if (query) {
+    params.set("q", query);
+  }
+
+  if (filters.factoryId !== "all") {
+    params.set("factoryId", filters.factoryId);
+  }
+
+  if (filters.machineId !== "all") {
+    params.set("machineId", filters.machineId);
+  }
+
+  if (filters.severity !== "all") {
+    params.set("severity", filters.severity);
+  }
+
+  if (filters.status !== "all") {
+    params.set("status", filters.status);
+  }
+
+  if (filters.sortMode !== "risk") {
+    params.set("sort", filters.sortMode);
+  }
+
+  return params.toString();
+}
+
+function parseSeverityFilter(value: string | null): SeverityFilter {
+  if (value === "critical" || value === "warning" || value === "info" || value === "unknown") {
+    return value;
+  }
+
+  return "all";
+}
+
+function parseStatusFilter(value: string | null): StatusFilter {
+  if (value === "open" || value === "resolved") {
+    return value;
+  }
+
+  return "all";
+}
+
+function parseAlarmSortMode(value: string | null): SortMode {
+  if (value === "latest" || value === "machine") {
+    return value;
+  }
+
+  return "risk";
 }

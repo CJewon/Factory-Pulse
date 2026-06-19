@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { MachineStatusTone, MachineStatusValue, MachineSummary } from "@/lib/machines";
+import { type BrowserHistoryMode, normalizeSearchQuery, readBrowserSearchParams, writeBrowserQueryString } from "@/lib/url-state";
 
 type StatusFilter = "all" | MachineStatusValue;
 type SortMode = "risk" | "name" | "alarms" | "installed";
+type MachineFilters = {
+  factoryId: string;
+  lineId: string;
+  query: string;
+  sortMode: SortMode;
+  status: StatusFilter;
+};
 
 const statusClass: Record<MachineStatusTone, string> = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -34,16 +42,43 @@ const sortLabels: Record<SortMode, string> = {
 
 export function MachinesClient({
   initialFactoryId,
+  initialLineId,
+  initialQuery,
+  initialSort,
+  initialStatus,
   machines
 }: {
   initialFactoryId: string | null;
+  initialLineId: string;
+  initialQuery: string;
+  initialSort: SortMode;
+  initialStatus: StatusFilter;
   machines: MachineSummary[];
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [factoryId, setFactoryId] = useState(initialFactoryId ?? "all");
-  const [lineId, setLineId] = useState("all");
-  const [status, setStatus] = useState<StatusFilter>("all");
-  const [sortMode, setSortMode] = useState<SortMode>("risk");
+  const [lineId, setLineId] = useState(initialLineId);
+  const [status, setStatus] = useState<StatusFilter>(initialStatus);
+  const [sortMode, setSortMode] = useState<SortMode>(initialSort);
+
+  useEffect(() => {
+    function syncFiltersFromLocation() {
+      const nextFilters = getMachineFiltersFromSearchParams(readBrowserSearchParams());
+
+      setQuery(nextFilters.query);
+      setFactoryId(nextFilters.factoryId);
+      setLineId(nextFilters.lineId);
+      setStatus(nextFilters.status);
+      setSortMode(nextFilters.sortMode);
+    }
+
+    syncFiltersFromLocation();
+    window.addEventListener("popstate", syncFiltersFromLocation);
+
+    return () => {
+      window.removeEventListener("popstate", syncFiltersFromLocation);
+    };
+  }, []);
 
   const factories = useMemo(() => getFactories(machines), [machines]);
   const selectedFactoryExists = factoryId === "all" || factories.some((factory) => factory.id === factoryId);
@@ -76,16 +111,39 @@ export function MachinesClient({
   }, [factoryId, lineId, machines, query, selectedFactoryExists, sortMode, status]);
 
   function resetFilters() {
-    setQuery("");
-    setFactoryId("all");
-    setLineId("all");
-    setStatus("all");
-    setSortMode("risk");
+    applyFilters(getDefaultMachineFilters(), "push");
   }
 
   function changeFactory(nextFactoryId: string) {
-    setFactoryId(nextFactoryId);
-    setLineId("all");
+    updateFilters({ factoryId: nextFactoryId, lineId: "all" }, "push");
+  }
+
+  function updateFilters(patch: Partial<MachineFilters>, mode: BrowserHistoryMode = "push") {
+    applyFilters(
+      {
+        factoryId,
+        lineId,
+        query,
+        sortMode,
+        status,
+        ...patch
+      },
+      mode
+    );
+  }
+
+  function applyFilters(nextFilters: MachineFilters, mode: BrowserHistoryMode) {
+    const normalizedFilters = {
+      ...nextFilters,
+      query: normalizeSearchQuery(nextFilters.query)
+    };
+
+    setQuery(normalizedFilters.query);
+    setFactoryId(normalizedFilters.factoryId);
+    setLineId(normalizedFilters.lineId);
+    setStatus(normalizedFilters.status);
+    setSortMode(normalizedFilters.sortMode);
+    writeBrowserQueryString(buildMachineQueryString(normalizedFilters), mode);
   }
 
   return (
@@ -112,9 +170,9 @@ export function MachinesClient({
           </span>
         </div>
 
-        {initialFactoryId && selectedFactoryExists ? (
+        {factoryId !== "all" && selectedFactoryExists ? (
           <p className="mt-3 w-fit rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800">
-            선택 공장: {factories.find((factory) => factory.id === initialFactoryId)?.name}
+            선택 공장: {factories.find((factory) => factory.id === factoryId)?.name}
           </p>
         ) : null}
 
@@ -126,7 +184,7 @@ export function MachinesClient({
               <span className="text-sm font-semibold text-[color:var(--foreground)]">검색</span>
               <input
                 className="mt-2 h-11 w-full rounded-md border border-[color:var(--line)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-teal-100"
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => updateFilters({ query: event.target.value }, "replace")}
                 placeholder="설비명, 모델명 검색"
                 type="search"
                 value={query}
@@ -153,7 +211,7 @@ export function MachinesClient({
               <span className="text-sm font-semibold text-[color:var(--foreground)]">라인</span>
               <select
                 className="mt-2 h-11 w-full rounded-md border border-[color:var(--line)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-teal-100"
-                onChange={(event) => setLineId(event.target.value)}
+                onChange={(event) => updateFilters({ lineId: event.target.value }, "push")}
                 value={lineId}
               >
                 <option value="all">전체 라인</option>
@@ -169,7 +227,7 @@ export function MachinesClient({
               <span className="text-sm font-semibold text-[color:var(--foreground)]">상태</span>
               <select
                 className="mt-2 h-11 w-full rounded-md border border-[color:var(--line)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-teal-100"
-                onChange={(event) => setStatus(event.target.value as StatusFilter)}
+                onChange={(event) => updateFilters({ status: event.target.value as StatusFilter }, "push")}
                 value={status}
               >
                 {statusOptions.map((option) => (
@@ -184,7 +242,7 @@ export function MachinesClient({
               <span className="text-sm font-semibold text-[color:var(--foreground)]">정렬</span>
               <select
                 className="mt-2 h-11 w-full rounded-md border border-[color:var(--line)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-teal-100"
-                onChange={(event) => setSortMode(event.target.value as SortMode)}
+                onChange={(event) => updateFilters({ sortMode: event.target.value as SortMode }, "push")}
                 value={sortMode}
               >
                 {Object.entries(sortLabels).map(([value, label]) => (
@@ -464,4 +522,74 @@ function compareInstalledAt(left: MachineSummary, right: MachineSummary) {
   }
 
   return right.installedAt.localeCompare(left.installedAt);
+}
+
+function getDefaultMachineFilters(): MachineFilters {
+  return {
+    factoryId: "all",
+    lineId: "all",
+    query: "",
+    sortMode: "risk",
+    status: "all"
+  };
+}
+
+function getMachineFiltersFromSearchParams(params: URLSearchParams): MachineFilters {
+  return {
+    factoryId: params.get("factoryId") || "all",
+    lineId: params.get("lineId") || "all",
+    query: normalizeSearchQuery(params.get("q")),
+    sortMode: parseMachineSortMode(params.get("sort")),
+    status: parseMachineStatusFilter(params.get("status"))
+  };
+}
+
+function buildMachineQueryString(filters: MachineFilters) {
+  const params = new URLSearchParams();
+  const query = normalizeSearchQuery(filters.query);
+
+  if (query) {
+    params.set("q", query);
+  }
+
+  if (filters.factoryId !== "all") {
+    params.set("factoryId", filters.factoryId);
+  }
+
+  if (filters.lineId !== "all") {
+    params.set("lineId", filters.lineId);
+  }
+
+  if (filters.status !== "all") {
+    params.set("status", filters.status);
+  }
+
+  if (filters.sortMode !== "risk") {
+    params.set("sort", filters.sortMode);
+  }
+
+  return params.toString();
+}
+
+function parseMachineStatusFilter(value: string | null): StatusFilter {
+  if (
+    value === "normal" ||
+    value === "warning" ||
+    value === "critical" ||
+    value === "stopped" ||
+    value === "maintenance" ||
+    value === "unknown"
+  ) {
+    return value;
+  }
+
+  return "all";
+}
+
+function parseMachineSortMode(value: string | null): SortMode {
+  if (value === "name" || value === "alarms" || value === "installed") {
+    return value;
+  }
+
+  return "risk";
 }

@@ -1,12 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { FactoryStatusValue, FactorySummary, FactorySummaryStatus, FactoryStatusTone } from "@/lib/factories";
+import { type BrowserHistoryMode, normalizeSearchQuery, readBrowserSearchParams, writeBrowserQueryString } from "@/lib/url-state";
 
 type SortMode = "risk" | "name" | "alarms" | "report";
 type StatusFilter = "all" | FactoryStatusValue;
+type FactoryFilters = {
+  query: string;
+  sortMode: SortMode;
+  statusFilter: StatusFilter;
+};
 
 const statusClass: Record<FactoryStatusTone, string> = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -44,6 +50,23 @@ export function FactoriesClient({
   const [lastRequestedAt, setLastRequestedAt] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    function syncFiltersFromLocation() {
+      const nextFilters = getFactoryFiltersFromSearchParams(readBrowserSearchParams());
+
+      setQuery(nextFilters.query);
+      setStatusFilter(nextFilters.statusFilter);
+      setSortMode(nextFilters.sortMode);
+    }
+
+    syncFiltersFromLocation();
+    window.addEventListener("popstate", syncFiltersFromLocation);
+
+    return () => {
+      window.removeEventListener("popstate", syncFiltersFromLocation);
+    };
+  }, []);
+
   const totals = useMemo(() => getTotals(summaries), [summaries]);
   const hasActiveFilters = query.trim().length > 0 || statusFilter !== "all" || sortMode !== "risk";
 
@@ -66,9 +89,31 @@ export function FactoriesClient({
   }, [query, sortMode, statusFilter, summaries]);
 
   function resetFilters() {
-    setQuery("");
-    setStatusFilter("all");
-    setSortMode("risk");
+    applyFilters(getDefaultFactoryFilters(), "push");
+  }
+
+  function updateFilters(patch: Partial<FactoryFilters>, mode: BrowserHistoryMode = "push") {
+    applyFilters(
+      {
+        query,
+        sortMode,
+        statusFilter,
+        ...patch
+      },
+      mode
+    );
+  }
+
+  function applyFilters(nextFilters: FactoryFilters, mode: BrowserHistoryMode) {
+    const normalizedFilters = {
+      ...nextFilters,
+      query: normalizeSearchQuery(nextFilters.query)
+    };
+
+    setQuery(normalizedFilters.query);
+    setStatusFilter(normalizedFilters.statusFilter);
+    setSortMode(normalizedFilters.sortMode);
+    writeBrowserQueryString(buildFactoryQueryString(normalizedFilters), mode);
   }
 
   function refreshPage() {
@@ -114,7 +159,7 @@ export function FactoriesClient({
             <span className="text-sm font-semibold text-[color:var(--foreground)]">검색</span>
             <input
               className="mt-2 h-11 w-full rounded-md border border-[color:var(--line)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-teal-100"
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => updateFilters({ query: event.target.value }, "replace")}
               placeholder="공장명, 위치, 설명 검색"
               type="search"
               value={query}
@@ -125,7 +170,7 @@ export function FactoriesClient({
             <span className="text-sm font-semibold text-[color:var(--foreground)]">상태</span>
             <select
               className="mt-2 h-11 w-full rounded-md border border-[color:var(--line)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-teal-100"
-              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+              onChange={(event) => updateFilters({ statusFilter: event.target.value as StatusFilter }, "push")}
               value={statusFilter}
             >
               {statusOptions.map((option) => (
@@ -140,7 +185,7 @@ export function FactoriesClient({
             <span className="text-sm font-semibold text-[color:var(--foreground)]">정렬</span>
             <select
               className="mt-2 h-11 w-full rounded-md border border-[color:var(--line)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-teal-100"
-              onChange={(event) => setSortMode(event.target.value as SortMode)}
+              onChange={(event) => updateFilters({ sortMode: event.target.value as SortMode }, "push")}
               value={sortMode}
             >
               {Object.entries(sortLabels).map(([value, label]) => (
@@ -412,4 +457,55 @@ function formatDateTime(value: string) {
     timeStyle: "short",
     timeZone: "Asia/Seoul"
   }).format(new Date(value));
+}
+
+function getDefaultFactoryFilters(): FactoryFilters {
+  return {
+    query: "",
+    sortMode: "risk",
+    statusFilter: "all"
+  };
+}
+
+function getFactoryFiltersFromSearchParams(params: URLSearchParams): FactoryFilters {
+  return {
+    query: normalizeSearchQuery(params.get("q")),
+    sortMode: parseFactorySortMode(params.get("sort")),
+    statusFilter: parseFactoryStatusFilter(params.get("status"))
+  };
+}
+
+function buildFactoryQueryString(filters: FactoryFilters) {
+  const params = new URLSearchParams();
+  const query = normalizeSearchQuery(filters.query);
+
+  if (query) {
+    params.set("q", query);
+  }
+
+  if (filters.statusFilter !== "all") {
+    params.set("status", filters.statusFilter);
+  }
+
+  if (filters.sortMode !== "risk") {
+    params.set("sort", filters.sortMode);
+  }
+
+  return params.toString();
+}
+
+function parseFactoryStatusFilter(value: string | null): StatusFilter {
+  if (value === "critical" || value === "warning" || value === "normal" || value === "offline") {
+    return value;
+  }
+
+  return "all";
+}
+
+function parseFactorySortMode(value: string | null): SortMode {
+  if (value === "name" || value === "alarms" || value === "report") {
+    return value;
+  }
+
+  return "risk";
 }

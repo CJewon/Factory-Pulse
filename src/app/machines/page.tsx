@@ -7,7 +7,13 @@ export const dynamic = "force-dynamic";
 export default async function MachinesPage({
   searchParams
 }: {
-  searchParams: Promise<{ factoryId?: string }>;
+  searchParams: Promise<{
+    factoryId?: string;
+    lineId?: string;
+    q?: string;
+    sort?: string;
+    status?: string;
+  }>;
 }) {
   const params = await searchParams;
   const machines = await getMachineSummaries();
@@ -52,9 +58,43 @@ export default async function MachinesPage({
         </section>
 
         <div className="mt-5">
-          <MachinesClient initialFactoryId={initialFactoryId} machines={machines} />
+          <MachinesClient
+            initialFactoryId={initialFactoryId}
+            initialLineId={params.lineId ?? "all"}
+            initialQuery={getInitialQuery(params.q)}
+            initialSort={getInitialSort(params.sort)}
+            initialStatus={getInitialStatus(params.status)}
+            machines={machines}
+          />
         </div>
       </div>
     </main>
   );
+}
+
+function getInitialStatus(value: string | undefined) {
+  if (
+    value === "normal" ||
+    value === "warning" ||
+    value === "critical" ||
+    value === "stopped" ||
+    value === "maintenance" ||
+    value === "unknown"
+  ) {
+    return value;
+  }
+
+  return "all";
+}
+
+function getInitialSort(value: string | undefined) {
+  if (value === "name" || value === "alarms" || value === "installed") {
+    return value;
+  }
+
+  return "risk";
+}
+
+function getInitialQuery(value: string | undefined) {
+  return (value ?? "").trim().slice(0, 80);
 }
