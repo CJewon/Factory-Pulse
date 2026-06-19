@@ -42,6 +42,7 @@ export default async function MachineDetailPage({
           <ReturnToLink
             className="w-fit rounded-md border border-[color:var(--line)] bg-white px-3 py-2 text-sm font-semibold text-[color:var(--foreground)] hover:border-[color:var(--accent)]"
             fallbackHref={`/machines?factoryId=${encodeURIComponent(machine.factoryId)}`}
+            labelByRoute={{ dashboard: "대시보드로" }}
           >
             이전 목록으로
           </ReturnToLink>

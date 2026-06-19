@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getReportDateDetail, getReportDates, type ReportSummary, type ReportTone } from "@/lib/reports";
+import { appendReturnTo } from "@/lib/url-state";
 import { ReturnToLink } from "@/shared/ui/ReturnToLink";
 
 type ReportDatePageProps = {
@@ -31,6 +32,7 @@ export default async function ReportDatePage({ params }: ReportDatePageProps) {
     notFound();
   }
 
+  const detailReturnTo = `/reports/${date}`;
   const detail = await getReportDateDetail(date);
 
   return (
@@ -45,6 +47,7 @@ export default async function ReportDatePage({ params }: ReportDatePageProps) {
             <ReturnToLink
               className="rounded-md border border-[color:var(--line)] bg-white px-3 py-2 font-semibold text-[color:var(--foreground)] hover:border-[color:var(--accent)]"
               fallbackHref="/reports"
+              labelByRoute={{ reportsCompare: "비교 화면으로" }}
             >
               리포트 목록
             </ReturnToLink>
@@ -141,7 +144,7 @@ export default async function ReportDatePage({ params }: ReportDatePageProps) {
                         <td className="px-4 py-4 text-right">
                           <Link
                             className="inline-flex h-10 items-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white hover:bg-slate-700"
-                            href={report.links.factory}
+                            href={appendReturnTo(report.links.factory, detailReturnTo)}
                           >
                             공장 상세
                           </Link>
@@ -172,7 +175,7 @@ export default async function ReportDatePage({ params }: ReportDatePageProps) {
                     </dl>
                     <Link
                       className="mt-4 flex h-11 w-full items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white"
-                      href={report.links.factory}
+                      href={appendReturnTo(report.links.factory, detailReturnTo)}
                     >
                       공장 상세
                     </Link>

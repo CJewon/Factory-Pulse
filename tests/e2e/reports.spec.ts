@@ -38,7 +38,12 @@ test.describe("/reports", () => {
     await expect(page.getByRole("heading", { name: /리포트 \d+건/ })).toBeVisible();
 
     await page.getByRole("link", { name: "공장 상세" }).first().click();
+    await expect(page).toHaveURL(/\/factories\/[^/]+\?returnTo=/);
     await expect(page.getByRole("heading", { level: 1, name: "서울 스마트팩토리" })).toBeVisible();
+
+    await page.getByRole("link", { name: "리포트 목록으로" }).click();
+    await expect(page).toHaveURL(/\/reports\?factoryId=/);
+    await expect(page.getByText("선택 공장: 서울 스마트팩토리")).toBeVisible();
   });
 
   test("리포트 목록에서 날짜별 상세로 이동하고 empty, 404 상태를 확인한다", async ({ page }) => {
@@ -51,6 +56,12 @@ test.describe("/reports", () => {
     await expect(page.getByRole("heading", { name: "공장별 리포트" })).toBeVisible();
     await expect(page.getByRole("link", { name: "리포트 목록" })).toBeVisible();
     await expect(page.getByRole("link", { name: "공장 상세" }).first()).toBeVisible();
+
+    const reportDatePath = new URL(page.url()).pathname;
+    await page.getByRole("link", { name: "공장 상세" }).first().click();
+    await expect(page).toHaveURL(/\/factories\/[^/]+\?returnTo=/);
+    await page.getByRole("link", { name: "리포트 상세로" }).click();
+    await expect(page).toHaveURL(new RegExp(`${reportDatePath.replaceAll("/", "\\/")}$`));
 
     await page.getByRole("link", { name: "리포트 목록" }).click();
     await expect(page).toHaveURL(/\/reports$/);
@@ -88,6 +99,17 @@ test.describe("/reports", () => {
     await expect(page.getByRole("heading", { level: 1, name: "기간 비교" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "비교 조건" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "공장별 비교" })).toBeVisible();
+
+    const compareUrl = page.url();
+    await page.getByRole("link", { name: "공장 상세" }).first().click();
+    await expect(page).toHaveURL(/\/factories\/[^/]+\?returnTo=/);
+    await page.getByRole("link", { name: "비교 화면으로" }).click();
+    await expect(page).toHaveURL(compareUrl);
+
+    await page.locator("article").filter({ hasText: "일자별 생산 흐름" }).getByRole("link").first().click();
+    await expect(page).toHaveURL(/\/reports\/\d{4}-\d{2}-\d{2}\?returnTo=/);
+    await page.getByRole("link", { name: "비교 화면으로" }).click();
+    await expect(page).toHaveURL(compareUrl);
 
     await page.goto("/reports/compare?fromA=2026-06-18&toA=2026-06-18&fromB=2026-06-17&toB=2026-06-17");
     await expect(page.getByLabel("기간 A 시작")).toHaveValue("2026-06-18");

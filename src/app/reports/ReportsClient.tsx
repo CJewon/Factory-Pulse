@@ -352,7 +352,7 @@ export function ReportsClient({ reports }: { reports: ReportSummary[] }) {
                             </Link>
                             <Link
                               className="inline-flex h-10 items-center rounded-md border border-[color:var(--line)] bg-white px-3 text-sm font-semibold text-[color:var(--foreground)] hover:border-[color:var(--accent)]"
-                              href={report.links.factory}
+                              href={appendReturnTo(report.links.factory, listReturnTo)}
                             >
                               공장 상세
                             </Link>
@@ -391,7 +391,7 @@ export function ReportsClient({ reports }: { reports: ReportSummary[] }) {
                       </Link>
                       <Link
                         className="flex h-11 w-full items-center justify-center rounded-md border border-[color:var(--line)] bg-white px-3 text-sm font-semibold text-[color:var(--foreground)]"
-                        href={report.links.factory}
+                        href={appendReturnTo(report.links.factory, listReturnTo)}
                       >
                         공장 상세
                       </Link>

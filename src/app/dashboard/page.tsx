@@ -10,6 +10,7 @@ import {
 } from "@/lib/dashboard";
 import { formatRefreshInterval, isDashboardCardVisible } from "@/lib/settings/mapper";
 import { getDashboardPreferenceContext } from "@/lib/settings/queries";
+import { appendReturnTo } from "@/lib/url-state";
 
 export const dynamic = "force-dynamic";
 
@@ -155,7 +156,10 @@ async function MachineStatusBoard() {
                 </span>
                 <p className="mt-2 text-xs text-[color:var(--muted)]">{machine.sensorRecordedAtLabel}</p>
               </div>
-              <Link className="flex h-10 items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white hover:bg-slate-700" href={machine.links.detail}>
+              <Link
+                className="flex h-10 items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white hover:bg-slate-700"
+                href={appendReturnTo(machine.links.detail, "/dashboard")}
+              >
                 상세 보기
               </Link>
             </article>
@@ -273,7 +277,10 @@ function AlarmRow({ alarm }: { alarm: DashboardAlarmItem }) {
       <p className="mt-1 text-xs leading-5 text-[color:var(--muted)]">
         {alarm.factoryName} / {alarm.machineName} / {alarm.occurredAtLabel}
       </p>
-      <Link className="mt-3 inline-flex h-10 items-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white hover:bg-slate-700" href={alarm.links.machine}>
+      <Link
+        className="mt-3 inline-flex h-10 items-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white hover:bg-slate-700"
+        href={appendReturnTo(alarm.links.machine, "/dashboard")}
+      >
         설비 상세
       </Link>
     </article>

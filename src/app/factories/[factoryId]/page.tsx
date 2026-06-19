@@ -50,6 +50,11 @@ export default async function FactoryDetailPage({
           <ReturnToLink
             className="w-fit rounded-md border border-[color:var(--line)] bg-white px-3 py-2 text-sm font-semibold text-[color:var(--foreground)] hover:border-[color:var(--accent)]"
             fallbackHref="/factories"
+            labelByRoute={{
+              reportDate: "리포트 상세로",
+              reports: "리포트 목록으로",
+              reportsCompare: "비교 화면으로"
+            }}
           >
             목록으로
           </ReturnToLink>

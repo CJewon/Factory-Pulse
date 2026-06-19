@@ -1,4 +1,11 @@
-import { appendReturnTo, getSafeReturnToHref, normalizeSearchQuery, readBrowserSearchParams, writeBrowserQueryString } from "./url-state";
+import {
+  appendReturnTo,
+  getReturnToRouteKind,
+  getSafeReturnToHref,
+  normalizeSearchQuery,
+  readBrowserSearchParams,
+  writeBrowserQueryString
+} from "./url-state";
 
 describe("url-state", () => {
   it("검색어를 trim하고 길이를 제한한다", () => {
@@ -41,16 +48,36 @@ describe("url-state", () => {
     expect(params.get("returnTo")).toBe("/machines?factoryId=factory-1&q=%ED%94%84%EB%A0%88%EC%8A%A4&status=critical");
   });
 
-  it("returnTo는 허용된 내부 목록 경로만 사용한다", () => {
+  it("returnTo는 허용된 내부 운영 경로만 사용한다", () => {
     expect(getSafeReturnToHref("/factories?q=서울&status=critical&debug=1", "/factories")).toBe(
       "/factories?q=%EC%84%9C%EC%9A%B8&status=critical"
     );
+    expect(getSafeReturnToHref("/dashboard", "/factories")).toBe("/dashboard");
+    expect(getSafeReturnToHref("/reports/2026-06-18?debug=1", "/reports")).toBe("/reports/2026-06-18");
+    expect(getSafeReturnToHref("/reports/2026-99-99", "/reports")).toBe("/reports");
+    expect(
+      getSafeReturnToHref(
+        "/reports/compare?factoryId=factory-1&fromA=2026-06-01&toA=2026-06-07&fromB=2026-05-25&toB=2026-05-31&token=secret",
+        "/reports/compare"
+      )
+    ).toBe("/reports/compare?fromA=2026-06-01&toA=2026-06-07&fromB=2026-05-25&toB=2026-05-31&factoryId=factory-1");
     expect(getSafeReturnToHref("https://evil.com", "/factories")).toBe("/factories");
     expect(getSafeReturnToHref("//evil.com/path", "/factories")).toBe("/factories");
     expect(getSafeReturnToHref("javascript:alert(1)", "/factories")).toBe("/factories");
+    expect(getSafeReturnToHref("/reports/%2F%2Fevil.com", "/reports")).toBe("/reports");
+    expect(getSafeReturnToHref("/reports/not-a-date", "/reports")).toBe("/reports");
     expect(getSafeReturnToHref("/unknown?q=서울", "/factories")).toBe("/factories");
     expect(getSafeReturnToHref("/machines?returnTo=https://evil.com&status=warning", "/machines")).toBe(
       "/machines?status=warning"
     );
+  });
+
+  it("returnTo 목적지 종류를 라벨용으로 분류한다", () => {
+    expect(getReturnToRouteKind("/dashboard")).toBe("dashboard");
+    expect(getReturnToRouteKind("/reports?sort=output")).toBe("reports");
+    expect(getReturnToRouteKind("/reports/2026-06-18")).toBe("reportDate");
+    expect(getReturnToRouteKind("/reports/2026-99-99")).toBeNull();
+    expect(getReturnToRouteKind("/reports/compare?fromA=2026-06-01")).toBe("reportsCompare");
+    expect(getReturnToRouteKind("https://evil.com")).toBeNull();
   });
 });

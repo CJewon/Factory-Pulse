@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { mapReportComparison } from "@/lib/reports/mapper";
 import type { ReportCompareDelta, ReportCompareResult, ReportSummary, ReportTone } from "@/lib/reports/types";
+import { appendReturnTo } from "@/lib/url-state";
 
 type CompareFilters = {
   factoryId: string;
@@ -58,6 +59,7 @@ export function ReportsCompareClient({ reports }: { reports: ReportSummary[] }) 
   const selectedFactory = factories.find((factory) => factory.id === appliedFilters.factoryId) ?? null;
   const hasDraftChanges = buildQueryString(draftFilters) !== buildQueryString(appliedFilters);
   const hasAppliedQuery = searchKey.length > 0;
+  const compareReturnTo = searchKey ? `${pathname}?${searchKey}` : pathname;
 
   function updateDraft(nextFilters: Partial<CompareFilters>) {
     setDraftState({ filters: { ...draftFilters, ...nextFilters }, searchKey });
@@ -198,12 +200,12 @@ export function ReportsCompareClient({ reports }: { reports: ReportSummary[] }) 
         ) : null}
       </section>
 
-      {!hasInvalidFilters && comparison ? <CompareResultView comparison={comparison} /> : null}
+      {!hasInvalidFilters && comparison ? <CompareResultView comparison={comparison} returnTo={compareReturnTo} /> : null}
     </div>
   );
 }
 
-function CompareResultView({ comparison }: { comparison: ReportCompareResult }) {
+function CompareResultView({ comparison, returnTo }: { comparison: ReportCompareResult; returnTo: string }) {
   const isEmpty = comparison.periodATotals.reportCount === 0 && comparison.periodBTotals.reportCount === 0;
 
   if (isEmpty) {
@@ -252,7 +254,7 @@ function CompareResultView({ comparison }: { comparison: ReportCompareResult }) 
               {comparison.periodA.dayCount}일
             </span>
           </div>
-          <TrendChart comparison={comparison} />
+          <TrendChart comparison={comparison} returnTo={returnTo} />
         </article>
 
         <article className="rounded-md border border-[color:var(--line)] bg-white p-4 shadow-sm">
@@ -322,7 +324,7 @@ function CompareResultView({ comparison }: { comparison: ReportCompareResult }) 
                       </Link>
                       <Link
                         className="inline-flex h-10 items-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white hover:bg-slate-700"
-                        href={row.links.factory}
+                        href={appendReturnTo(row.links.factory, returnTo)}
                       >
                         공장 상세
                       </Link>
@@ -356,7 +358,7 @@ function CompareResultView({ comparison }: { comparison: ReportCompareResult }) 
                 </Link>
                 <Link
                   className="flex h-11 w-full items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white"
-                  href={row.links.factory}
+                  href={appendReturnTo(row.links.factory, returnTo)}
                 >
                   공장 상세
                 </Link>
@@ -410,7 +412,7 @@ function PeriodMetric({ label, periodA, periodB }: { label: string; periodA: str
   );
 }
 
-function TrendChart({ comparison }: { comparison: ReportCompareResult }) {
+function TrendChart({ comparison, returnTo }: { comparison: ReportCompareResult; returnTo: string }) {
   const maxOutput = Math.max(0, ...comparison.trend.map((point) => point.totalOutput));
 
   if (comparison.trend.length === 0) {
@@ -434,7 +436,7 @@ function TrendChart({ comparison }: { comparison: ReportCompareResult }) {
               </div>
               <Link
                 className="text-xs font-semibold text-[color:var(--foreground)] underline-offset-4 hover:underline"
-                href={`/reports/${point.date}`}
+                href={appendReturnTo(`/reports/${point.date}`, returnTo)}
               >
                 {point.dateLabel.slice(5)}
               </Link>

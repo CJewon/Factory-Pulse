@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { useSyncExternalStore, type ReactNode } from "react";
-import { getSafeReturnToHref, readBrowserSearchParams } from "@/lib/url-state";
+import { getReturnToRouteKind, getSafeReturnToHref, readBrowserSearchParams, type ReturnToRouteKind } from "@/lib/url-state";
 
 export function ReturnToLink({
   children,
   className,
   fallbackHref,
+  labelByRoute,
   paramName = "returnTo"
 }: {
   children: ReactNode;
   className?: string;
   fallbackHref: string;
+  labelByRoute?: Partial<Record<ReturnToRouteKind, ReactNode>>;
   paramName?: string;
 }) {
   const href = useSyncExternalStore(
@@ -20,10 +22,12 @@ export function ReturnToLink({
     () => getSafeReturnToHref(readBrowserSearchParams().get(paramName), fallbackHref),
     () => fallbackHref
   );
+  const routeKind = getReturnToRouteKind(href);
+  const label = routeKind ? labelByRoute?.[routeKind] ?? children : children;
 
   return (
     <Link className={className} href={href}>
-      {children}
+      {label}
     </Link>
   );
 }

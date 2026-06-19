@@ -28,8 +28,11 @@ test.describe("/dashboard", () => {
       .first()
       .click();
 
-    await expect(page).toHaveURL(/\/machines\/[^/]+$/);
+    await expect(page).toHaveURL(/\/machines\/[^/]+\?returnTo=%2Fdashboard$/);
     await expect(page.getByRole("heading", { level: 1, name: firstMachineName })).toBeVisible();
+
+    await page.getByRole("link", { name: "대시보드로" }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
   });
 
   test("홈에서 대시보드로 이동하고 주요 목록 버튼이 실제 route로 연결된다", async ({ page }) => {
