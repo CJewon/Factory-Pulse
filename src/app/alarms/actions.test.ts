@@ -93,6 +93,7 @@ describe("resolveAlarmAction", () => {
       resolved_by: "user-1"
     });
     expect(mockedRevalidatePath).toHaveBeenCalledWith("/alarms");
+    expect(mockedRevalidatePath).toHaveBeenCalledWith("/alarms/live");
     expect(mockedRevalidatePath).toHaveBeenCalledWith("/dashboard");
     expect(mockedRevalidatePath).toHaveBeenCalledWith("/machines/machine-1");
   });

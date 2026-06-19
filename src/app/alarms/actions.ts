@@ -92,6 +92,7 @@ export async function resolveAlarmAction(alarmId: string): Promise<ResolveAlarmA
   }
 
   revalidatePath("/alarms");
+  revalidatePath("/alarms/live");
   revalidatePath("/dashboard");
   revalidatePath("/machines");
   revalidatePath(`/machines/${existingAlarmResult.data.machine_id}`);

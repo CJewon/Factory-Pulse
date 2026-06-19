@@ -31,6 +31,12 @@ export default async function AlarmsPage({
           <nav aria-label="알람 목록 보조 이동" className="flex flex-wrap gap-2 text-sm">
             <Link
               className="rounded-md border border-[color:var(--line)] bg-white px-3 py-2 font-semibold text-[color:var(--foreground)] hover:border-[color:var(--accent)]"
+              href="/alarms/live"
+            >
+              실시간 감시
+            </Link>
+            <Link
+              className="rounded-md border border-[color:var(--line)] bg-white px-3 py-2 font-semibold text-[color:var(--foreground)] hover:border-[color:var(--accent)]"
               href="/machines"
             >
               설비 목록
