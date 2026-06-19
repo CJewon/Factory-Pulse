@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { FactoryStatusValue, FactorySummary, FactorySummaryStatus, FactoryStatusTone } from "@/lib/factories";
-import { type BrowserHistoryMode, normalizeSearchQuery, readBrowserSearchParams, writeBrowserQueryString } from "@/lib/url-state";
+import {
+  appendReturnTo,
+  type BrowserHistoryMode,
+  normalizeSearchQuery,
+  readBrowserSearchParams,
+  writeBrowserQueryString
+} from "@/lib/url-state";
 
 type SortMode = "risk" | "name" | "alarms" | "report";
 type StatusFilter = "all" | FactoryStatusValue;
@@ -69,6 +75,11 @@ export function FactoriesClient({
 
   const totals = useMemo(() => getTotals(summaries), [summaries]);
   const hasActiveFilters = query.trim().length > 0 || statusFilter !== "all" || sortMode !== "risk";
+  const listReturnTo = useMemo(() => {
+    const queryString = buildFactoryQueryString({ query, sortMode, statusFilter });
+
+    return queryString ? `/factories?${queryString}` : "/factories";
+  }, [query, sortMode, statusFilter]);
 
   const visibleFactories = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("ko");
@@ -281,7 +292,7 @@ export function FactoriesClient({
                       <td className="border-b border-[color:var(--line)] px-4 py-4 text-right">
                         <Link
                           className="inline-flex h-10 items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                          href={factory.links.detail}
+                          href={appendReturnTo(factory.links.detail, listReturnTo)}
                         >
                           상세 보기
                         </Link>
@@ -294,7 +305,7 @@ export function FactoriesClient({
 
             <div className="grid gap-3 p-3 lg:hidden">
               {visibleFactories.map((factory) => (
-                <FactoryCard factory={factory} key={factory.id} />
+                <FactoryCard factory={factory} key={factory.id} listReturnTo={listReturnTo} />
               ))}
             </div>
           </>
@@ -328,7 +339,7 @@ function SummaryTile({
   );
 }
 
-function FactoryCard({ factory }: { factory: FactorySummary }) {
+function FactoryCard({ factory, listReturnTo }: { factory: FactorySummary; listReturnTo: string }) {
   return (
     <article className="rounded-md border border-[color:var(--line)] bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -348,7 +359,7 @@ function FactoryCard({ factory }: { factory: FactorySummary }) {
 
       <Link
         className="mt-4 flex h-11 items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-        href={factory.links.detail}
+        href={appendReturnTo(factory.links.detail, listReturnTo)}
       >
         상세 보기
       </Link>

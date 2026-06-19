@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { ReportStatusValue, ReportSummary, ReportTone } from "@/lib/reports";
+import { appendReturnTo } from "@/lib/url-state";
 
 type StatusFilter = "all" | ReportStatusValue;
 type SortMode = "latest" | "oldest" | "output" | "operation" | "defect";
@@ -95,6 +96,7 @@ export function ReportsClient({ reports }: { reports: ReportSummary[] }) {
   const chartPoints = useMemo(() => getChartPoints(visibleReports), [visibleReports]);
   const selectedFactory = factories.find((factory) => factory.id === appliedFilters.factoryId) ?? null;
   const compareLink = useMemo(() => buildCompareLink(appliedFilters, visibleReports), [appliedFilters, visibleReports]);
+  const listReturnTo = searchKey ? `${pathname}?${searchKey}` : pathname;
   const hasDraftChanges = buildQueryString(draftFilters) !== buildQueryString(appliedFilters);
   const hasAppliedFilters = buildQueryString(appliedFilters).length > 0;
 
@@ -344,7 +346,7 @@ export function ReportsClient({ reports }: { reports: ReportSummary[] }) {
                           <div className="flex justify-end gap-2">
                             <Link
                               className="inline-flex h-10 items-center rounded-md bg-[color:var(--accent)] px-3 text-sm font-semibold text-white hover:bg-[color:var(--accent-strong)]"
-                              href={report.links.detail}
+                              href={appendReturnTo(report.links.detail, listReturnTo)}
                             >
                               리포트 상세
                             </Link>
@@ -383,7 +385,7 @@ export function ReportsClient({ reports }: { reports: ReportSummary[] }) {
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
                       <Link
                         className="flex h-11 w-full items-center justify-center rounded-md bg-[color:var(--accent)] px-3 text-sm font-semibold text-white"
-                        href={report.links.detail}
+                        href={appendReturnTo(report.links.detail, listReturnTo)}
                       >
                         리포트 상세
                       </Link>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getReportDateDetail, getReportDates, type ReportSummary, type ReportTone } from "@/lib/reports";
+import { ReturnToLink } from "@/shared/ui/ReturnToLink";
 
 type ReportDatePageProps = {
   params: Promise<{
@@ -41,12 +42,12 @@ export default async function ReportDatePage({ params }: ReportDatePageProps) {
             <h1 className="mt-1 text-2xl font-semibold text-[color:var(--foreground)]">일별 생산 리포트</h1>
           </div>
           <nav aria-label="일별 생산 리포트 보조 이동" className="flex flex-wrap gap-2 text-sm">
-            <Link
+            <ReturnToLink
               className="rounded-md border border-[color:var(--line)] bg-white px-3 py-2 font-semibold text-[color:var(--foreground)] hover:border-[color:var(--accent)]"
-              href="/reports"
+              fallbackHref="/reports"
             >
               리포트 목록
-            </Link>
+            </ReturnToLink>
             <Link
               className="rounded-md border border-[color:var(--line)] bg-white px-3 py-2 font-semibold text-[color:var(--foreground)] hover:border-[color:var(--accent)]"
               href="/dashboard"
@@ -193,12 +194,12 @@ function EmptyDateState({ date }: { date: string }) {
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[color:var(--muted)]">
         날짜 형식은 올바르지만 해당 날짜에 저장된 생산 리포트가 없습니다. 전체 리포트 목록에서 다른 날짜를 선택해 주세요.
       </p>
-      <Link
+      <ReturnToLink
         className="mt-5 inline-flex h-11 items-center rounded-md bg-[color:var(--foreground)] px-4 text-sm font-semibold text-white hover:bg-slate-700"
-        href="/reports"
+        fallbackHref="/reports"
       >
         리포트 목록으로
-      </Link>
+      </ReturnToLink>
     </section>
   );
 }

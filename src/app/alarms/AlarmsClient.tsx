@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { AlarmSeverityValue, AlarmStatusValue, AlarmSummary, AlarmTone } from "@/lib/alarms";
-import { type BrowserHistoryMode, normalizeSearchQuery, readBrowserSearchParams, writeBrowserQueryString } from "@/lib/url-state";
+import {
+  appendReturnTo,
+  type BrowserHistoryMode,
+  normalizeSearchQuery,
+  readBrowserSearchParams,
+  writeBrowserQueryString
+} from "@/lib/url-state";
 import { resolveAlarmAction } from "./actions";
 
 type SeverityFilter = "all" | AlarmSeverityValue;
@@ -114,6 +120,11 @@ export function AlarmsClient({
     severity !== "all" ||
     status !== "all" ||
     sortMode !== "risk";
+  const listReturnTo = useMemo(() => {
+    const queryString = buildAlarmQueryString({ factoryId, machineId, query, severity, sortMode, status });
+
+    return queryString ? `/alarms?${queryString}` : "/alarms";
+  }, [factoryId, machineId, query, severity, sortMode, status]);
 
   const visibleAlarms = useMemo(() => {
     if (!selectedFactoryExists || !selectedMachineExists) {
@@ -413,7 +424,7 @@ export function AlarmsClient({
                             />
                             <Link
                               className="inline-flex h-10 items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                              href={alarm.links.machine}
+                              href={appendReturnTo(alarm.links.machine, listReturnTo)}
                             >
                               설비 상세
                             </Link>
@@ -432,6 +443,7 @@ export function AlarmsClient({
                     canResolveAlarms={canResolveAlarms}
                     isPending={pendingAlarmId === alarm.id}
                     key={alarm.id}
+                    listReturnTo={listReturnTo}
                     onResolve={resolveAlarm}
                   />
                 ))}
@@ -487,11 +499,13 @@ function AlarmCard({
   alarm,
   canResolveAlarms,
   isPending,
+  listReturnTo,
   onResolve
 }: {
   alarm: AlarmSummary;
   canResolveAlarms: boolean;
   isPending: boolean;
+  listReturnTo: string;
   onResolve: (alarm: AlarmSummary) => void;
 }) {
   return (
@@ -520,7 +534,7 @@ function AlarmCard({
         <ResolveAlarmButton alarm={alarm} canResolveAlarms={canResolveAlarms} isPending={isPending} onResolve={onResolve} />
         <Link
           className="flex h-11 items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-          href={alarm.links.machine}
+          href={appendReturnTo(alarm.links.machine, listReturnTo)}
         >
           설비 상세
         </Link>

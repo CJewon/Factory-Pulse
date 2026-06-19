@@ -64,6 +64,22 @@ test.describe("/reports", () => {
     await expect(page.getByRole("heading", { level: 1, name: "요청한 화면을 찾을 수 없습니다." })).toBeVisible();
   });
 
+  test("리포트 날짜 상세의 목록 링크가 이전 리포트 query를 복원한다", async ({ page }) => {
+    await page.goto("/reports");
+
+    await page.getByLabel("정렬").selectOption("output");
+    await page.getByRole("button", { name: "필터 적용" }).click();
+    await expect(page).toHaveURL(/\/reports\?sort=output$/);
+
+    await page.getByRole("link", { name: "리포트 상세" }).first().click();
+    await expect(page).toHaveURL(/\/reports\/\d{4}-\d{2}-\d{2}\?returnTo=/);
+
+    await page.getByRole("link", { name: "리포트 목록" }).click();
+
+    await expect(page).toHaveURL(/\/reports\?sort=output$/);
+    await expect(page.getByLabel("정렬")).toHaveValue("output");
+  });
+
   test("기간 비교 화면에서 A/B 기간 비교, invalid, empty 상태를 확인한다", async ({ page }) => {
     await page.goto("/reports");
 

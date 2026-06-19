@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { MachineStatusTone, MachineStatusValue, MachineSummary } from "@/lib/machines";
-import { type BrowserHistoryMode, normalizeSearchQuery, readBrowserSearchParams, writeBrowserQueryString } from "@/lib/url-state";
+import {
+  appendReturnTo,
+  type BrowserHistoryMode,
+  normalizeSearchQuery,
+  readBrowserSearchParams,
+  writeBrowserQueryString
+} from "@/lib/url-state";
 
 type StatusFilter = "all" | MachineStatusValue;
 type SortMode = "risk" | "name" | "alarms" | "installed";
@@ -86,6 +92,11 @@ export function MachinesClient({
   const totals = useMemo(() => getTotals(machines), [machines]);
   const hasActiveFilters =
     query.trim().length > 0 || factoryId !== "all" || lineId !== "all" || status !== "all" || sortMode !== "risk";
+  const listReturnTo = useMemo(() => {
+    const queryString = buildMachineQueryString({ factoryId, lineId, query, sortMode, status });
+
+    return queryString ? `/machines?${queryString}` : "/machines";
+  }, [factoryId, lineId, query, sortMode, status]);
 
   const visibleMachines = useMemo(() => {
     if (!selectedFactoryExists) {
@@ -315,7 +326,7 @@ export function MachinesClient({
                         <td className="border-b border-[color:var(--line)] px-4 py-4 text-right">
                           <Link
                             className="inline-flex h-10 items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                            href={machine.links.detail}
+                            href={appendReturnTo(machine.links.detail, listReturnTo)}
                           >
                             상세 보기
                           </Link>
@@ -328,7 +339,7 @@ export function MachinesClient({
 
               <div className="grid gap-3 p-3 lg:hidden">
                 {visibleMachines.map((machine) => (
-                  <MachineCard key={machine.id} machine={machine} />
+                  <MachineCard key={machine.id} listReturnTo={listReturnTo} machine={machine} />
                 ))}
               </div>
             </>
@@ -363,7 +374,7 @@ function SummaryTile({
   );
 }
 
-function MachineCard({ machine }: { machine: MachineSummary }) {
+function MachineCard({ listReturnTo, machine }: { listReturnTo: string; machine: MachineSummary }) {
   return (
     <article className="rounded-md border border-[color:var(--line)] bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -385,7 +396,7 @@ function MachineCard({ machine }: { machine: MachineSummary }) {
 
       <Link
         className="mt-4 flex h-11 items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-        href={machine.links.detail}
+        href={appendReturnTo(machine.links.detail, listReturnTo)}
       >
         상세 보기
       </Link>

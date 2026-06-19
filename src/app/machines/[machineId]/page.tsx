@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMachineDetail } from "@/lib/machines";
 import type { MachineDetail, MachineDetailAlarm, MachineStatusTone, SensorMetric } from "@/lib/machines";
+import { ReturnToLink } from "@/shared/ui/ReturnToLink";
 
 export const dynamic = "force-dynamic";
 
@@ -38,12 +39,12 @@ export default async function MachineDetailPage({
               </span>
             </div>
           </div>
-          <Link
+          <ReturnToLink
             className="w-fit rounded-md border border-[color:var(--line)] bg-white px-3 py-2 text-sm font-semibold text-[color:var(--foreground)] hover:border-[color:var(--accent)]"
-            href={`/machines?factoryId=${encodeURIComponent(machine.factoryId)}`}
+            fallbackHref={`/machines?factoryId=${encodeURIComponent(machine.factoryId)}`}
           >
-            설비 목록으로
-          </Link>
+            이전 목록으로
+          </ReturnToLink>
         </div>
       </header>
 

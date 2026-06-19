@@ -37,11 +37,12 @@ test.describe("/factories", () => {
     const firstFactoryName = await page.locator("tbody tr").first().locator("td").first().locator("p").first().innerText();
     await page.getByRole("link", { name: "상세 보기" }).first().click();
 
-    await expect(page).toHaveURL(/\/factories\/[^/]+$/);
+    await expect(page).toHaveURL(/\/factories\/[^/]+\?returnTo=/);
     await expect(page.getByRole("heading", { level: 1, name: firstFactoryName })).toBeVisible();
 
     await page.getByRole("link", { name: "목록으로" }).click();
-    await expect(page).toHaveURL(/\/factories$/);
+    await expect(page).toHaveURL(/\/factories\?sort=name$/);
+    await expect(page.getByLabel("정렬")).toHaveValue("name");
   });
 
   test("공장 목록 공유 URL이 검색, 상태, 정렬을 복원한다", async ({ page }) => {
@@ -51,6 +52,19 @@ test.describe("/factories", () => {
     await expect(page.getByLabel("상태")).toHaveValue("critical");
     await expect(page.getByLabel("정렬")).toHaveValue("name");
     await expect(page.getByText("현재 정렬 공장명순")).toBeVisible();
+  });
+
+  test("공장 상세의 목록으로 링크가 이전 목록 query를 복원한다", async ({ page }) => {
+    await page.goto("/factories?q=서울&sort=name");
+
+    await page.getByRole("link", { name: "상세 보기" }).first().click();
+    await expect(page).toHaveURL(/\/factories\/[^/]+\?returnTo=/);
+
+    await page.getByRole("link", { name: "목록으로" }).click();
+
+    await expect(page).toHaveURL(/\/factories\?q=.*&sort=name/);
+    await expect(page.getByPlaceholder("공장명, 위치, 설명 검색")).toHaveValue("서울");
+    await expect(page.getByLabel("정렬")).toHaveValue("name");
   });
 
   test("공장 상세에서 설비 목록으로 이동하고 factoryId 필터를 적용한다", async ({ page }) => {
@@ -87,6 +101,19 @@ test.describe("/factories", () => {
     await expect(page.getByLabel("상태")).toHaveValue("warning");
     await expect(page.getByLabel("정렬")).toHaveValue("name");
     await expect(page.getByText("현재 정렬 설비명순")).toBeVisible();
+  });
+
+  test("설비 상세의 이전 목록으로 링크가 이전 설비 목록 query를 복원한다", async ({ page }) => {
+    await page.goto("/machines?factoryId=10000000-0000-0000-0000-000000000001&sort=name");
+
+    await page.getByRole("table").getByRole("link", { name: "상세 보기" }).first().click();
+    await expect(page).toHaveURL(/\/machines\/[^/]+\?returnTo=/);
+
+    await page.getByRole("link", { name: "이전 목록으로" }).click();
+
+    await expect(page).toHaveURL(/\/machines\?factoryId=10000000-0000-0000-0000-000000000001&sort=name$/);
+    await expect(page.getByLabel("공장")).toHaveValue("10000000-0000-0000-0000-000000000001");
+    await expect(page.getByLabel("정렬")).toHaveValue("name");
   });
 
   test("설비 상세에서 알람 목록으로 이동하고 machineId 필터를 적용한다", async ({ page }) => {
@@ -141,5 +168,31 @@ test.describe("/factories", () => {
     await expect(page.getByLabel("상태")).toHaveValue("open");
     await expect(page.getByLabel("정렬")).toHaveValue("latest");
     await expect(page.getByText("현재 정렬 최신순")).toBeVisible();
+  });
+
+  test("알람 목록에서 설비 상세로 이동해도 이전 알람 query로 복귀한다", async ({ page }) => {
+    await page.goto("/alarms?status=open&sort=latest");
+
+    await page.getByRole("link", { name: "설비 상세" }).first().click();
+    await expect(page).toHaveURL(/\/machines\/[^/]+\?returnTo=/);
+
+    await page.getByRole("link", { name: "이전 목록으로" }).click();
+
+    await expect(page).toHaveURL(/\/alarms\?/);
+    const restoredUrl = new URL(page.url());
+    expect(restoredUrl.searchParams.get("status")).toBe("open");
+    expect(restoredUrl.searchParams.get("sort")).toBe("latest");
+    await expect(page.getByLabel("상태")).toHaveValue("open");
+    await expect(page.getByLabel("정렬")).toHaveValue("latest");
+  });
+
+  test("악성 returnTo는 외부 이동 없이 안전한 목록으로 fallback한다", async ({ page }) => {
+    await page.goto("/machines/30000000-0000-0000-0000-000000000002?returnTo=https%3A%2F%2Fevil.com");
+    const returnLink = page.getByRole("link", { name: "이전 목록으로" });
+    await expect(returnLink).toBeVisible();
+    await returnLink.click();
+
+    expect(new URL(page.url()).origin).toBe("http://127.0.0.1:3001");
+    await expect(page).toHaveURL(/\/machines\?factoryId=/);
   });
 });

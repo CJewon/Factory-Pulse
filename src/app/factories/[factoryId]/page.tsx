@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getFactorySummaries } from "@/lib/factories";
 import type { FactoryStatusTone, FactorySummary } from "@/lib/factories";
+import { ReturnToLink } from "@/shared/ui/ReturnToLink";
 
 export const revalidate = 600;
 
@@ -46,12 +47,12 @@ export default async function FactoryDetailPage({
               </span>
             </div>
           </div>
-          <Link
+          <ReturnToLink
             className="w-fit rounded-md border border-[color:var(--line)] bg-white px-3 py-2 text-sm font-semibold text-[color:var(--foreground)] hover:border-[color:var(--accent)]"
-            href="/factories"
+            fallbackHref="/factories"
           >
             목록으로
-          </Link>
+          </ReturnToLink>
         </div>
       </header>
 

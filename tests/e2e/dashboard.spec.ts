@@ -35,8 +35,10 @@ test.describe("/dashboard", () => {
   test("홈에서 대시보드로 이동하고 주요 목록 버튼이 실제 route로 연결된다", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("link", { name: "대시보드" }).click();
-    await expect(page).toHaveURL(/\/dashboard$/);
+    const primaryNav = page.getByRole("navigation", { name: "주요 화면" });
+    const dashboardLink = primaryNav.getByRole("link", { name: "대시보드" });
+    await expect(dashboardLink).toHaveAttribute("href", "/dashboard");
+    await Promise.all([page.waitForURL(/\/dashboard$/), dashboardLink.click()]);
 
     await page.getByRole("link", { name: "공장 목록" }).first().click();
     await expect(page).toHaveURL(/\/factories$/);
