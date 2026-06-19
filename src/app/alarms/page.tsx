@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getAlarmSummaries, type AlarmSeverityValue, type AlarmStatusValue } from "@/lib/alarms";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AlarmsClient } from "./AlarmsClient";
 
 type SearchParams = {
@@ -17,7 +18,7 @@ export default async function AlarmsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const alarms = await getAlarmSummaries();
+  const [alarms, canResolveAlarms] = await Promise.all([getAlarmSummaries(), getCanResolveAlarms()]);
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[color:var(--background)]">
@@ -52,8 +53,8 @@ export default async function AlarmsPage({
             <span className="block sm:inline">확인 우선순위를 정합니다.</span>
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-[color:var(--muted)]">
-            <span className="block sm:inline">P0에서는 공개 조회와 필터만 제공합니다.</span>{" "}
-            <span className="block sm:inline">알람 확인 처리는 인증 설계 이후 진행합니다.</span>
+            <span className="block sm:inline">조회는 공개 데이터 기준으로 제공됩니다.</span>{" "}
+            <span className="block sm:inline">알람 확인은 로그인 세션이 있을 때 Server Action으로 처리합니다.</span>
           </p>
         </section>
 
@@ -64,11 +65,22 @@ export default async function AlarmsPage({
             initialMachineId={params.machineId ?? null}
             initialSeverity={getInitialSeverity(params.severity)}
             initialStatus={getInitialStatus(params.status)}
+            canResolveAlarms={canResolveAlarms}
           />
         </div>
       </div>
     </main>
   );
+}
+
+async function getCanResolveAlarms() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+    error
+  } = await supabase.auth.getUser();
+
+  return !error && Boolean(user);
 }
 
 function getInitialSeverity(value: string | undefined): "all" | AlarmSeverityValue {

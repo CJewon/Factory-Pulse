@@ -1,12 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
 import type { AlarmSeverityValue, AlarmStatusValue, AlarmSummary, AlarmTone } from "@/lib/alarms";
+import { resolveAlarmAction } from "./actions";
 
 type SeverityFilter = "all" | AlarmSeverityValue;
 type StatusFilter = "all" | AlarmStatusValue;
 type SortMode = "risk" | "latest" | "machine";
+type ActionMessage = {
+  tone: "success" | "warning" | "danger";
+  text: string;
+};
 
 const toneClass: Record<AlarmTone, string> = {
   danger: "border-rose-200 bg-rose-50 text-rose-800",
@@ -41,20 +47,26 @@ export function AlarmsClient({
   initialFactoryId,
   initialMachineId,
   initialSeverity,
-  initialStatus
+  initialStatus,
+  canResolveAlarms
 }: {
   alarms: AlarmSummary[];
   initialFactoryId: string | null;
   initialMachineId: string | null;
   initialSeverity: SeverityFilter;
   initialStatus: StatusFilter;
+  canResolveAlarms: boolean;
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [factoryId, setFactoryId] = useState(initialFactoryId ?? "all");
   const [machineId, setMachineId] = useState(initialMachineId ?? "all");
   const [severity, setSeverity] = useState<SeverityFilter>(initialSeverity);
   const [status, setStatus] = useState<StatusFilter>(initialStatus);
   const [sortMode, setSortMode] = useState<SortMode>("risk");
+  const [pendingAlarmId, setPendingAlarmId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<ActionMessage | null>(null);
+  const [, startTransition] = useTransition();
 
   const factories = useMemo(() => getFactories(alarms), [alarms]);
   const machines = useMemo(() => getMachines(alarms, factoryId), [alarms, factoryId]);
@@ -109,6 +121,40 @@ export function AlarmsClient({
     setMachineId("all");
   }
 
+  function resolveAlarm(alarm: AlarmSummary) {
+    if (alarm.isResolved) {
+      return;
+    }
+
+    if (!canResolveAlarms) {
+      setActionMessage({
+        tone: "warning",
+        text: "로그인 후 알람 확인을 사용할 수 있습니다."
+      });
+      return;
+    }
+
+    setPendingAlarmId(alarm.id);
+    setActionMessage(null);
+
+    startTransition(() => {
+      void resolveAlarmAction(alarm.id)
+        .then((result) => {
+          setActionMessage({
+            tone: result.ok ? "success" : "danger",
+            text: result.message
+          });
+
+          if (result.ok) {
+            router.refresh();
+          }
+        })
+        .finally(() => {
+          setPendingAlarmId(null);
+        });
+    });
+  }
+
   return (
     <div className="space-y-5">
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -125,7 +171,7 @@ export function AlarmsClient({
             <h2 className="text-lg font-semibold">알람 목록 제어</h2>
             <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">
               <span className="block sm:inline">심각도, 상태, 공장, 설비 기준으로 알람을 좁힙니다.</span>{" "}
-              <span className="block sm:inline">P0에서는 조회와 이동만 제공합니다.</span>
+              <span className="block sm:inline">미해결 알람은 로그인 세션이 있을 때 확인 처리할 수 있습니다.</span>
             </p>
           </div>
           <span className="w-fit rounded-md border border-[color:var(--line)] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
@@ -243,6 +289,18 @@ export function AlarmsClient({
         )}
       </section>
 
+      {!canResolveAlarms ? (
+        <section
+          aria-label="알람 확인 권한 안내"
+          className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <p className="font-semibold">알람 확인은 로그인 후 사용할 수 있습니다.</p>
+          <p className="mt-1 leading-6">현재는 공개 조회 세션입니다. 알람 목록과 설비 상세 이동은 계속 사용할 수 있습니다.</p>
+        </section>
+      ) : null}
+
+      {actionMessage ? <ActionFeedback message={actionMessage} /> : null}
+
       {selectedFactoryExists && selectedMachineExists ? (
         <section className="rounded-md border border-[color:var(--line)] bg-white shadow-sm">
           <div className="flex flex-col gap-2 border-b border-[color:var(--line)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -289,12 +347,20 @@ export function AlarmsClient({
                         </td>
                         <td className="border-b border-[color:var(--line)] px-4 py-4 text-sm">{alarm.occurredAtLabel}</td>
                         <td className="border-b border-[color:var(--line)] px-4 py-4 text-right">
-                          <Link
-                            className="inline-flex h-10 items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                            href={alarm.links.machine}
-                          >
-                            설비 상세
-                          </Link>
+                          <div className="flex justify-end gap-2">
+                            <ResolveAlarmButton
+                              alarm={alarm}
+                              canResolveAlarms={canResolveAlarms}
+                              isPending={pendingAlarmId === alarm.id}
+                              onResolve={resolveAlarm}
+                            />
+                            <Link
+                              className="inline-flex h-10 items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                              href={alarm.links.machine}
+                            >
+                              설비 상세
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -304,7 +370,13 @@ export function AlarmsClient({
 
               <div className="grid gap-3 p-3 lg:hidden">
                 {visibleAlarms.map((alarm) => (
-                  <AlarmCard alarm={alarm} key={alarm.id} />
+                  <AlarmCard
+                    alarm={alarm}
+                    canResolveAlarms={canResolveAlarms}
+                    isPending={pendingAlarmId === alarm.id}
+                    key={alarm.id}
+                    onResolve={resolveAlarm}
+                  />
                 ))}
               </div>
             </>
@@ -312,6 +384,21 @@ export function AlarmsClient({
         </section>
       ) : null}
     </div>
+  );
+}
+
+function ActionFeedback({ message }: { message: ActionMessage }) {
+  const className =
+    message.tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+      : message.tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-900"
+        : "border-rose-200 bg-rose-50 text-rose-900";
+
+  return (
+    <section className={`rounded-md border px-4 py-3 text-sm ${className}`} role={message.tone === "danger" ? "alert" : "status"}>
+      {message.text}
+    </section>
   );
 }
 
@@ -339,7 +426,17 @@ function SummaryTile({
   );
 }
 
-function AlarmCard({ alarm }: { alarm: AlarmSummary }) {
+function AlarmCard({
+  alarm,
+  canResolveAlarms,
+  isPending,
+  onResolve
+}: {
+  alarm: AlarmSummary;
+  canResolveAlarms: boolean;
+  isPending: boolean;
+  onResolve: (alarm: AlarmSummary) => void;
+}) {
   return (
     <article className="rounded-md border border-[color:var(--line)] bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -362,13 +459,44 @@ function AlarmCard({ alarm }: { alarm: AlarmSummary }) {
         <Metric label="해결" value={alarm.resolvedAtLabel} />
       </div>
 
-      <Link
-        className="mt-4 flex h-11 items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-        href={alarm.links.machine}
-      >
-        설비 상세
-      </Link>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <ResolveAlarmButton alarm={alarm} canResolveAlarms={canResolveAlarms} isPending={isPending} onResolve={onResolve} />
+        <Link
+          className="flex h-11 items-center justify-center rounded-md bg-[color:var(--foreground)] px-3 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+          href={alarm.links.machine}
+        >
+          설비 상세
+        </Link>
+      </div>
     </article>
+  );
+}
+
+function ResolveAlarmButton({
+  alarm,
+  canResolveAlarms,
+  isPending,
+  onResolve
+}: {
+  alarm: AlarmSummary;
+  canResolveAlarms: boolean;
+  isPending: boolean;
+  onResolve: (alarm: AlarmSummary) => void;
+}) {
+  const isResolved = alarm.isResolved;
+  const isDisabled = isResolved || isPending || !canResolveAlarms;
+  const label = isResolved ? "해결됨" : isPending ? "처리 중" : canResolveAlarms ? "알람 확인" : "로그인 필요";
+
+  return (
+    <button
+      aria-label={`${alarm.message} ${label}`}
+      className="inline-flex h-10 items-center justify-center rounded-md border border-[color:var(--line)] bg-white px-3 text-sm font-semibold text-[color:var(--foreground)] transition hover:border-[color:var(--accent)] disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+      disabled={isDisabled}
+      onClick={() => onResolve(alarm)}
+      type="button"
+    >
+      {label}
+    </button>
   );
 }
 
